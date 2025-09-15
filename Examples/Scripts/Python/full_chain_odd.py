@@ -36,6 +36,7 @@ from acts.examples.reconstruction import (
     VertexFinder,
     addSeedFilterML,
     SeedFilterMLDBScanConfig,
+    SeedingAlgorithm,
 )
 from acts.examples.odd import getOpenDataDetector, getOpenDataDetectorDirectory
 
@@ -349,6 +350,7 @@ if args.reco:
         geoSelectionConfigFile=oddSeedingSel,
         outputDirRoot=outputDir if args.output_root else None,
         outputDirCsv=outputDir if args.output_csv else None,
+        seedingAlgorithm=SeedingAlgorithm.HoughTransform,
     )
 
     if seedFilter_ML:
