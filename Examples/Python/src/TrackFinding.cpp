@@ -135,10 +135,11 @@ void addTrackFinding(Context& ctx) {
       inputClusters);
 
   ACTS_PYTHON_DECLARE_ALGORITHM(
-      HoughTransformSeeder, mex, "HoughTransformSeeder", inputSpacePoints,
-      outputProtoTracks, trackingGeometry, geometrySelection, inputMeasurements,
-      subRegions, nLayers, xMin, xMax, yMin, yMax, houghHistSize_x,
-      houghHistSize_y, hitExtend_x, threshold, localMaxWindowSize, kA);
+      HoughTransformSeeder, mex, "HoughTransformSeeder",
+      inputSpacePoints, outputSeeds, outputProtoTracks, trackingGeometry,
+      geometrySelection, inputMeasurements, subRegions, nLayers, xMin, xMax,
+      yMin, yMax, houghHistSize_x, houghHistSize_y, hitExtend_x, threshold,
+      localMaxWindowSize, kA);
 
   ACTS_PYTHON_DECLARE_ALGORITHM(
       AdaptiveHoughTransformSeeder, mex, "AdaptiveHoughTransformSeeder",
