@@ -190,8 +190,9 @@ class HoughTransformSeeder final : public IAlgorithm {
     // reduce potential combinatorics
 
     std::vector<int> subRegions = {
-        -1};  // -1 for entire region (no slicing), but this can be more than
-              // one region if data are sliced
+        -1, 0, 1, 2, 3,
+        4,  5, 6, 7};  // -1 for entire region (no slicing), but this can be
+                       // more than one region if data are sliced
 
     unsigned nLayers = 10;  // total number of layers
 

@@ -28,10 +28,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <iterator>
 #include <ostream>
 #include <stdexcept>
 #include <variant>
+
+#include <TFile.h>
+#include <TH2.h>
 
 static inline int quant(double min, double max, unsigned nSteps, double val);
 static inline double unquant(double min, double max, unsigned nSteps, int step);
@@ -148,8 +152,28 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
       .connect<&ActsExamples::DefaultHoughFunctions::fieldCorrectionDefault>();
   m_cfg.layerIDFinder
       .connect<&ActsExamples::DefaultHoughFunctions::findLayerIDDefault>();
-  m_cfg.sliceTester
-      .connect<&ActsExamples::DefaultHoughFunctions::inSliceDefault>();
+  // m_cfg.sliceTester
+  //     .connect<&ActsExamples::DefaultHoughFunctions::inSliceDefault>();
+
+  auto slicer = [](double z, [[maybe_unused]] unsigned layer,
+                   int slice) -> ResultBool {
+    if (slice == -1) {
+      return ResultBool::success(true);
+    }
+
+    const double absz = abs(z);
+    if (absz > 200) {
+      return ResultBool::success(false);
+    }
+
+    constexpr double step = 50;                     // [mm]
+    const double zMin = -200 + step * slice;        // [mm]
+    const double zMax = -150 + step * (slice + 1);  // [mm]
+
+    return ResultBool::success(z >= zMin && z < zMax);
+  };
+
+  m_cfg.sliceTester.connect<slicer>();
 }
 
 ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
@@ -171,8 +195,18 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     ACTS_DEBUG("Processing subregion " << subregion);
     ActsExamples::HoughHist m_houghHist = createHoughHist(subregion);
 
+    const auto name =
+        std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
+    auto hh_hist = std::unique_ptr<TH2F>(
+        new TH2F(name.c_str(), name.c_str(), m_cfg.houghHistSize_y, 0,
+                 m_cfg.houghHistSize_y, m_cfg.houghHistSize_x, 0,
+                 m_cfg.houghHistSize_x));
+
     for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
       for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
+        if (int entries = m_houghHist.atLocalBins({y, x}).first; entries > 0) {
+          hh_hist->SetBinContent(hh_hist->FindBin(y, x), entries);
+        }
         if (!passThreshold(m_houghHist, x, y)) {
           continue;
         }
@@ -207,6 +241,9 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
         }
       }
     }
+    auto file = TFile::Open("out.root", "update");
+    file->WriteObject(hh_hist.get(), name.c_str());
+    file->Close();
   }
   ACTS_DEBUG("Created " << protoTracks.size() << " proto track");
 
