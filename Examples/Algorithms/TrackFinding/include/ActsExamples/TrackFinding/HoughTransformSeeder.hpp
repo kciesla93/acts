@@ -196,10 +196,10 @@ class HoughTransformSeeder final : public IAlgorithm {
 
     unsigned nLayers = 10;  // total number of layers
 
-    float xMin = 0.;                    // minphi
-    float xMax = 2 * std::numbers::pi;  // maxphi
-    float yMin = -1.;                   // min q/pt, -1/1 GeV
-    float yMax = 1.;                    // max q/pt, +1/1 GeV
+    float xMin = -std::numbers::pi;  // minphi
+    float xMax = std::numbers::pi;   // maxphi
+    float yMin = -1.;                // min q/pt, -1/1 GeV
+    float yMax = 1.;                 // max q/pt, +1/1 GeV
 
     /// Size of the houghHists. One obvious concern with this being too big is
     /// that it will take up more memory But the bins of the houghHist are
