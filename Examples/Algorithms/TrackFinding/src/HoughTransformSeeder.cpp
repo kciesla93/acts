@@ -155,22 +155,30 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   // m_cfg.sliceTester
   //     .connect<&ActsExamples::DefaultHoughFunctions::inSliceDefault>();
 
-  auto slicer = [](double z, [[maybe_unused]] unsigned layer,
-                   int slice) -> ResultBool {
-    if (slice == -1) {
-      return ResultBool::success(true);
+  auto slicer = [](double r, double z) -> ResultInt {
+    static constexpr std::array<double, 16> slopes = {
+        3.958635163302001,   1.9190347513349442,   1.2160764352269504,
+        0.8509181282393217,  0.6242512573183217,   0.4696424405952246,
+        0.35836971457897854, 0.2757205647717832,   0.21316651520319008,
+        0.16528366985509557, 0.12838038369877433,  0.09982156966882275,
+        0.07766518053979722, 0.060449890009156106, 0.04706152070355474,
+        0.0366435703258656};
+
+    if (z > 0) {  // slices 16-32
+      for (const auto& [idx, slope] : Acts::enumerate(slopes)) {
+        if (r > slope * z) {
+          return ResultInt::success(idx + 16);
+        }
+      }
+    } else {  // slices 0-15
+      for (const auto& [idx, slope] : Acts::enumerate(slopes)) {
+        if (r > -slope * z) {
+          return ResultInt::success(15 - idx);
+        }
+      }
     }
 
-    const double absz = abs(z);
-    if (absz > 200) {
-      return ResultBool::success(false);
-    }
-
-    constexpr double step = 50;                     // [mm]
-    const double zMin = -200 + step * slice;        // [mm]
-    const double zMax = -150 + step * (slice + 1);  // [mm]
-
-    return ResultBool::success(z >= zMin && z < zMax);
+    return ResultInt::success(-1);  // Is outside
   };
 
   m_cfg.sliceTester.connect<slicer>();
@@ -185,7 +193,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   addSpacePoints(ctx);
 
   // add ACTS measurements
-  addMeasurements(ctx);
+  // addMeasurements(ctx);
 
   static thread_local ProtoTrackContainer protoTracks;
   protoTracks.clear();
@@ -264,7 +272,8 @@ ActsExamples::HoughTransformSeeder::createLayerHoughHist(unsigned layer,
     if (meas->layer != layer) {
       continue;
     }
-    if (!(m_cfg.sliceTester(meas->z, meas->layer, subregion)).value()) {
+    if (subregion != -1 &&
+        m_cfg.sliceTester(meas->radius, meas->z).value() != subregion) {
       continue;
     }
 
@@ -519,6 +528,9 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
       if (!(hitlayer.ok())) {
         continue;
       }
+      ACTS_DEBUG(std::format("{}: r={} z={} layer={}",
+                             r < 350 ? "PIXEL" : "STRIP", r, z,
+                             hitlayer.value()));
       std::vector<Index> indices;
       for (const auto& slink : sp.sourceLinks()) {
         const auto& islink = slink.get<IndexSourceLink>();

@@ -98,15 +98,15 @@ struct AlgorithmContext;
 using ResultDouble = Acts::Result<double>;
 using ResultBool = Acts::Result<bool>;
 using ResultUnsigned = Acts::Result<unsigned>;
+using ResultInt = Acts::Result<int>;
 
 using FieldCorrector = Acts::Delegate<ResultDouble(
     unsigned, double, double)>;  // (unsigned region, double y, double r)
 using LayerIDFinder = Acts::Delegate<ResultUnsigned(
     double)>;  // (double r) this function will map the r of a measurement to a
                // layer.
-using SliceTester = Acts::Delegate<ResultBool(
-    double, unsigned, int)>;  // (double z,unsigned layer, int slice) returns
-                              // true if measurement in slice
+using SliceTester = Acts::Delegate<ResultInt(
+    double, double)>;  // (double r, unsigned z) returns number of slice if
 
 namespace Acts {
 class TrackingGeometry;
@@ -189,10 +189,16 @@ class HoughTransformSeeder final : public IAlgorithm {
     // subregion. But since not all hits are considered this provides a way to
     // reduce potential combinatorics
 
-    std::vector<int> subRegions = {
-        -1, 0, 1, 2, 3,
-        4,  5, 6, 7};  // -1 for entire region (no slicing), but this can be
-                       // more than one region if data are sliced
+    std::vector<int>
+        subRegions =
+            {
+                -1, 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
+                11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                23, 24, 25, 26, 27, 28, 29, 30, 31};  // -1 for entire region
+                                                      // (no slicing), but this
+                                                      // can be more than one
+                                                      // region if data are
+                                                      // sliced
 
     unsigned nLayers = 10;  // total number of layers
 
