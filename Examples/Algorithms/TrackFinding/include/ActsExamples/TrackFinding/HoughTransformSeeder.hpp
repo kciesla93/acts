@@ -98,15 +98,15 @@ struct AlgorithmContext;
 using ResultDouble = Acts::Result<double>;
 using ResultBool = Acts::Result<bool>;
 using ResultUnsigned = Acts::Result<unsigned>;
-using ResultInt = Acts::Result<int>;
 
 using FieldCorrector = Acts::Delegate<ResultDouble(
     unsigned, double, double)>;  // (unsigned region, double y, double r)
 using LayerIDFinder = Acts::Delegate<ResultUnsigned(
     double)>;  // (double r) this function will map the r of a measurement to a
                // layer.
-using SliceTester = Acts::Delegate<ResultInt(
-    double, double)>;  // (double r, unsigned z) returns number of slice if
+using SliceTester = Acts::Delegate<ResultBool(
+    double, double, int)>;  // (double r, double z, int slice) returns
+                            // true if measurement in slice
 
 namespace Acts {
 class TrackingGeometry;

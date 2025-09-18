@@ -152,33 +152,18 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
       .connect<&ActsExamples::DefaultHoughFunctions::fieldCorrectionDefault>();
   m_cfg.layerIDFinder
       .connect<&ActsExamples::DefaultHoughFunctions::findLayerIDDefault>();
-  // m_cfg.sliceTester
-  //     .connect<&ActsExamples::DefaultHoughFunctions::inSliceDefault>();
 
-  auto slicer = [](double r, double z) -> ResultInt {
-    static constexpr std::array<double, 16> slopes = {
-        3.958635163302001,   1.9190347513349442,   1.2160764352269504,
-        0.8509181282393217,  0.6242512573183217,   0.4696424405952246,
-        0.35836971457897854, 0.2757205647717832,   0.21316651520319008,
-        0.16528366985509557, 0.12838038369877433,  0.09982156966882275,
-        0.07766518053979722, 0.060449890009156106, 0.04706152070355474,
-        0.0366435703258656};
-
-    if (z > 0) {  // slices 16-32
-      for (const auto& [idx, slope] : Acts::enumerate(slopes)) {
-        if (r > slope * z) {
-          return ResultInt::success(idx + 16);
-        }
-      }
-    } else {  // slices 0-15
-      for (const auto& [idx, slope] : Acts::enumerate(slopes)) {
-        if (r > -slope * z) {
-          return ResultInt::success(15 - idx);
-        }
-      }
+  auto slicer = [](double r, double z, int slice) -> ResultBool {
+    if (slice == -1) {
+      return ResultBool::success(true);
     }
 
-    return ResultInt::success(-1);  // Is outside
+    const double theta = std::atan2(r, z);
+    const double eta = -std::log(std::tan(theta / 2.));
+    const double lo_eta = -4.0 + 0.25 * slice;
+    const double hi_eta = -4.0 + 0.25 * (slice + 1);
+
+    return ResultBool::success(eta < hi_eta && eta > lo_eta);
   };
 
   m_cfg.sliceTester.connect<slicer>();
@@ -272,8 +257,7 @@ ActsExamples::HoughTransformSeeder::createLayerHoughHist(unsigned layer,
     if (meas->layer != layer) {
       continue;
     }
-    if (subregion != -1 &&
-        m_cfg.sliceTester(meas->radius, meas->z).value() != subregion) {
+    if (!m_cfg.sliceTester(meas->radius, meas->z, subregion).value()) {
       continue;
     }
 
