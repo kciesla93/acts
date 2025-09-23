@@ -252,13 +252,14 @@ ActsExamples::HoughTransformSeeder::createLayerHoughHist(unsigned layer,
       Axis(0, m_cfg.houghHistSize_y, m_cfg.houghHistSize_y),
       Axis(0, m_cfg.houghHistSize_x, m_cfg.houghHistSize_x));
 
-  for (const auto& m : std::ranges::filter_view(
-           houghMeasurementStructs,
-           [layer, subregion,
-            this](const std::shared_ptr<HoughMeasurementStruct>& meas) {
-             return meas->layer == layer &&
-                    m_cfg.sliceTester(meas->eta, subregion).value();
-           })) {
+  for (const auto& m :
+       houghMeasurementStructs |
+           std::views::filter(
+               [layer, subregion,
+                this](const std::shared_ptr<HoughMeasurementStruct>& meas) {
+                 return meas->layer == layer &&
+                        m_cfg.sliceTester(meas->eta, subregion).value();
+               })) {
     const HoughMeasurementStruct* meas = m.get();
     const int index =
         std::distance(houghMeasurementStructs.begin(),
