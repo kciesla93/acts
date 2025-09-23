@@ -233,7 +233,9 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
         }
       }
     }
-    auto file = TFile::Open("out.root", "update");
+    auto thread_hash = std::hash<std::thread::id>{}(std::this_thread::get_id());
+    auto file =
+        TFile::Open(std::format("out_{}.root", thread_hash).c_str(), "update");
     file->WriteObject(hh_hist.get(), name.c_str());
     file->Close();
   }
