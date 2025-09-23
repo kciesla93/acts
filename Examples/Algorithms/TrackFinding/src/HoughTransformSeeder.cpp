@@ -253,22 +253,25 @@ ActsExamples::HoughTransformSeeder::createLayerHoughHist(unsigned layer,
   ActsExamples::HoughHist houghHist(
       Axis(0, m_cfg.houghHistSize_y, m_cfg.houghHistSize_y),
       Axis(0, m_cfg.houghHistSize_x, m_cfg.houghHistSize_x));
-  for (unsigned index = 0; index < houghMeasurementStructs.size(); index++) {
-    HoughMeasurementStruct* meas = houghMeasurementStructs[index].get();
-    if (meas->layer != layer) {
-      continue;
-    }
-    if (!m_cfg.sliceTester(meas->radius, meas->z, subregion).value()) {
-      continue;
-    }
 
-    // This scans over y (pT) because that is more efficient in memory
+  for (const auto& m : std::ranges::filter_view(
+           houghMeasurementStructs,
+           [layer, subregion,
+            this](const std::shared_ptr<HoughMeasurementStruct>& meas) {
+             return meas->layer == layer &&
+                    m_cfg.sliceTester(meas->radius, meas->z, subregion).value();
+           })) {
+    const HoughMeasurementStruct* meas = m.get();
+    const int index =
+        std::distance(houghMeasurementStructs.begin(),
+                      std::find(houghMeasurementStructs.begin(),
+                                houghMeasurementStructs.end(), m));
     for (unsigned y_ = 0; y_ < m_cfg.houghHistSize_y; y_++) {
-      unsigned y_bin_min = y_;
-      unsigned y_bin_max = (y_ + 1);
+      const unsigned y_bin_min = y_;
+      const unsigned y_bin_max = (y_ + 1);
 
       // Find the min/max x bins
-      auto xBins =
+      const auto xBins =
           yToXBins(y_bin_min, y_bin_max, meas->radius, meas->phi, meas->layer);
       // Update the houghHist
       for (unsigned y = y_bin_min; y < y_bin_max; y++) {
