@@ -294,8 +294,8 @@ ActsExamples::HoughHist ActsExamples::HoughTransformSeeder::createHoughHist(
 
   for (int i : populatedLayers) {
     HoughHist layerHoughHist = createLayerHoughHist(i, subregion);
-    for (unsigned x = 0; x < m_cfg.houghHistSize_x; ++x) {
-      for (unsigned y = 0; y < m_cfg.houghHistSize_y; ++y) {
+    for (unsigned y = 0; y < m_cfg.houghHistSize_y; ++y) {
+      for (unsigned x = 0; x < m_cfg.houghHistSize_x; ++x) {
         if (layerHoughHist.atLocalBins({y, x}).first > 0) {
           houghHist.atLocalBins({y, x}).first++;
           houghHist.atLocalBins({y, x}).second.insert(
