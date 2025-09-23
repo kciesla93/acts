@@ -173,6 +173,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     const AlgorithmContext& ctx) const {
   // clear our Hough measurements out from the previous iteration, if at all
   houghMeasurementStructs.clear();
+  populatedLayers.clear();
 
   // add SPs to the inputs
   addSpacePoints(ctx);
@@ -288,7 +289,7 @@ ActsExamples::HoughHist ActsExamples::HoughTransformSeeder::createHoughHist(
       Axis(0, m_cfg.houghHistSize_y, m_cfg.houghHistSize_y),
       Axis(0, m_cfg.houghHistSize_x, m_cfg.houghHistSize_x));
 
-  for (unsigned i = 0; i < m_cfg.nLayers; i++) {
+  for (int i : populatedLayers) {
     HoughHist layerHoughHist = createLayerHoughHist(i, subregion);
     for (unsigned x = 0; x < m_cfg.houghHistSize_x; ++x) {
       for (unsigned y = 0; y < m_cfg.houghHistSize_y; ++y) {
@@ -520,6 +521,8 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
         const auto& islink = slink.get<IndexSourceLink>();
         indices.push_back(islink.index());
       }
+
+      populatedLayers.insert(hitlayer.value());
 
       auto meas =
           std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(

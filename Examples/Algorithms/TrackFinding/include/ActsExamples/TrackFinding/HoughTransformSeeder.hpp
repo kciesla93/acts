@@ -151,6 +151,7 @@ struct HoughMeasurementStruct {
 
 thread_local std::vector<std::shared_ptr<HoughMeasurementStruct>>
     houghMeasurementStructs;
+thread_local std::set<int> populatedLayers;
 
 /// Construct track seeds from space points.
 class HoughTransformSeeder final : public IAlgorithm {
