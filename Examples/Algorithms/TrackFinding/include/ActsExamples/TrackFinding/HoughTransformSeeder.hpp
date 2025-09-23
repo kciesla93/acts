@@ -104,9 +104,9 @@ using FieldCorrector = Acts::Delegate<ResultDouble(
 using LayerIDFinder = Acts::Delegate<ResultUnsigned(
     double)>;  // (double r) this function will map the r of a measurement to a
                // layer.
-using SliceTester = Acts::Delegate<ResultBool(
-    double, double, int)>;  // (double r, double z, int slice) returns
-                            // true if measurement in slice
+using SliceTester =
+    Acts::Delegate<ResultBool(double, int)>;  // (double eta, int slice) returns
+                                              // true if measurement in slice
 
 namespace Acts {
 class TrackingGeometry;
@@ -142,11 +142,18 @@ struct HoughMeasurementStruct {
   double phi;
   double radius;
   double z;
+  double eta;
   std::vector<Index> indices;
   HoughHitType type;
   HoughMeasurementStruct(unsigned l, double p, double r, double thez,
-                         std::vector<Index>& i, HoughHitType t)
-      : layer(l), phi(p), radius(r), z(thez), indices(i), type(t) {}
+                         double theeta, std::vector<Index>& i, HoughHitType t)
+      : layer(l),
+        phi(p),
+        radius(r),
+        z(thez),
+        eta(theeta),
+        indices(i),
+        type(t) {}
 };
 
 thread_local std::vector<std::shared_ptr<HoughMeasurementStruct>>

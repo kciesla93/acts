@@ -153,13 +153,11 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   m_cfg.layerIDFinder
       .connect<&ActsExamples::DefaultHoughFunctions::findLayerIDDefault>();
 
-  auto slicer = [](double r, double z, int slice) -> ResultBool {
+  auto slicer = [](double eta, int slice) -> ResultBool {
     if (slice == -1) {
       return ResultBool::success(true);
     }
 
-    const double theta = std::atan2(r, z);
-    const double eta = -std::log(std::tan(theta / 2.));
     const double lo_eta = -4.0 + 0.25 * slice;
     const double hi_eta = -4.0 + 0.25 * (slice + 1);
 
@@ -259,7 +257,7 @@ ActsExamples::HoughTransformSeeder::createLayerHoughHist(unsigned layer,
            [layer, subregion,
             this](const std::shared_ptr<HoughMeasurementStruct>& meas) {
              return meas->layer == layer &&
-                    m_cfg.sliceTester(meas->radius, meas->z, subregion).value();
+                    m_cfg.sliceTester(meas->eta, subregion).value();
            })) {
     const HoughMeasurementStruct* meas = m.get();
     const int index =
@@ -509,10 +507,12 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
     ACTS_DEBUG("Inserting " << spContainer.size() << " space points from "
                             << isp->key());
     for (auto& sp : spContainer) {
-      double r = Acts::fastHypot(sp.x(), sp.y());
-      double z = sp.z();
-      float phi = std::atan2(sp.y(), sp.x());
-      ResultUnsigned hitlayer = m_cfg.layerIDFinder(r).value();
+      const double r = Acts::fastHypot(sp.x(), sp.y());
+      const double z = sp.z();
+      const float phi = std::atan2(sp.y(), sp.x());
+      const double theta = std::atan2(r, z);
+      const double eta = -std::log(std::tan(theta / 2.));
+      const ResultUnsigned hitlayer = m_cfg.layerIDFinder(r).value();
       if (!(hitlayer.ok())) {
         continue;
       }
@@ -529,7 +529,7 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
 
       auto meas =
           std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
-              hitlayer.value(), phi, r, z, indices, HoughHitType::SP));
+              hitlayer.value(), phi, r, z, eta, indices, HoughHitType::SP));
       houghMeasurementStructs.push_back(meas);
     }
   }
@@ -584,16 +584,20 @@ void ActsExamples::HoughTransformSeeder::addMeasurements(
         Acts::Vector3 globalFakeMom(1, 1, 1);
         Acts::Vector3 globalPos =
             surface->localToGlobal(ctx.geoContext, localPos, globalFakeMom);
-        double r = globalPos.head<2>().norm();
-        double phi = std::atan2(globalPos[Acts::ePos1], globalPos[Acts::ePos0]);
-        double z = globalPos[Acts::ePos2];
-        ResultUnsigned hitlayer = m_cfg.layerIDFinder(r);
+        const double r = globalPos.head<2>().norm();
+        const double phi =
+            std::atan2(globalPos[Acts::ePos1], globalPos[Acts::ePos0]);
+        const double z = globalPos[Acts::ePos2];
+        const double theta = std::atan2(r, z);
+        const double eta = -std::log(std::tan(theta / 2.));
+        const ResultUnsigned hitlayer = m_cfg.layerIDFinder(r);
         if (hitlayer.ok()) {
           std::vector<Index> index;
           index.push_back(sourceLink.index());
+          populatedLayers.insert(hitlayer.value());
           auto houghMeas = std::shared_ptr<HoughMeasurementStruct>(
-              new HoughMeasurementStruct(hitlayer.value(), phi, r, z, index,
-                                         HoughHitType::MEASUREMENT));
+              new HoughMeasurementStruct(hitlayer.value(), phi, r, z, eta,
+                                         index, HoughHitType::MEASUREMENT));
           houghMeasurementStructs.push_back(houghMeas);
         }
       }
