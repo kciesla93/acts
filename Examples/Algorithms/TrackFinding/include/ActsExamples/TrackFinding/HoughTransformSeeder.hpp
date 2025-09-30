@@ -95,6 +95,10 @@ namespace ActsExamples {
 struct AlgorithmContext;
 }  // namespace ActsExamples
 
+namespace ActsExamples {
+class HoughMeasurementStruct;
+}  // namespace ActsExamples
+
 using ResultDouble = Acts::Result<double>;
 using ResultBool = Acts::Result<bool>;
 using ResultUnsigned = Acts::Result<unsigned>;
@@ -104,9 +108,10 @@ using FieldCorrector = Acts::Delegate<ResultDouble(
 using LayerIDFinder = Acts::Delegate<ResultUnsigned(
     double)>;  // (double r) this function will map the r of a measurement to a
                // layer.
-using SliceTester =
-    Acts::Delegate<ResultBool(double, int)>;  // (double eta, int slice) returns
-                                              // true if measurement in slice
+using SliceTester = Acts::Delegate<ResultBool(
+    const std::shared_ptr<ActsExamples::HoughMeasurementStruct>&,
+    int)>;  // (double eta, int slice) returns
+            // true if measurement in slice
 
 namespace Acts {
 class TrackingGeometry;

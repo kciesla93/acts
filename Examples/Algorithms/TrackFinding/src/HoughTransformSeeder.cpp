@@ -153,15 +153,25 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   m_cfg.layerIDFinder
       .connect<&ActsExamples::DefaultHoughFunctions::findLayerIDDefault>();
 
-  auto slicer = [](double eta, int slice) -> ResultBool {
+  auto slicer = [](const std::shared_ptr<HoughMeasurementStruct>& meas,
+                   int slice) -> ResultBool {
     if (slice == -1) {
       return ResultBool::success(true);
     }
 
-    const double lo_eta = -4.0 + 0.25 * slice;
-    const double hi_eta = -4.0 + 0.25 * (slice + 1);
+    auto easing = [](double x) {
+      // return ((0 < x) - (x < 0)) * 32 * (x * x / 1024);  // InSquare
+      // return 32 * (x * x * x / 32768);  // InCubic
+      // return ((0 < x) - (x < 0)) * (32 - std::sqrt(1024 - x * x));  // InCirc
+      return x;  // Linear
+    };
 
-    return ResultBool::success(eta < hi_eta && eta > lo_eta);
+    const double lo_cot = easing(-32.0 + 2. * slice);
+    const double hi_cot = easing(-32.0 + 2. * (slice + 1));
+    const double v1 = (meas->z + 200) / meas->radius;
+    const double v2 = (meas->z - 200) / meas->radius;
+
+    return ResultBool::success((v1 - lo_cot) * (v2 - hi_cot) < 0);
   };
 
   m_cfg.sliceTester.connect<slicer>();
@@ -261,7 +271,7 @@ ActsExamples::HoughTransformSeeder::createLayerHoughHist(unsigned layer,
                [layer, subregion,
                 this](const std::shared_ptr<HoughMeasurementStruct>& meas) {
                  return meas->layer == layer &&
-                        m_cfg.sliceTester(meas->eta, subregion).value();
+                        m_cfg.sliceTester(meas, subregion).value();
                })) {
     const HoughMeasurementStruct* meas = m.get();
     const int index =
@@ -506,6 +516,13 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
     const AlgorithmContext& ctx) const {
   // construct the combined input container of space point pointers from all
   // configured input sources.
+
+  auto file = TFile::Open("zr.root", "recreate");
+  std::vector<TH2F> zr;
+  for (int i = 0; i < 32; ++i) {
+    const auto name = std::format("zr_{}", i);
+    zr.emplace_back(name.c_str(), name.c_str(), 600, -3000, 3000, 120, 0, 1200);
+  }
   for (const auto& isp : m_inputSpacePoints) {
     const auto& spContainer = (*isp)(ctx);
     ACTS_DEBUG("Inserting " << spContainer.size() << " space points from "
@@ -535,8 +552,15 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
           std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
               hitlayer.value(), phi, r, z, eta, indices, HoughHitType::SP));
       houghMeasurementStructs.push_back(meas);
+      for (int i = 0; i < 32; ++i) {
+        if (m_cfg.sliceTester(meas, i).value()) {
+          zr[i].Fill(z, r);
+        }
+      }
     }
   }
+  file->Write();
+  file->Close();
 }
 
 void ActsExamples::HoughTransformSeeder::addMeasurements(
