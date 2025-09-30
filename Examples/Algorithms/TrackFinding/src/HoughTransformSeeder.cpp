@@ -160,10 +160,12 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
     }
 
     auto easing = [](double x) {
+      return ((0 < x) - (x < 0)) * 32 *
+             (1 - std::cos((x * std::numbers::pi) / 64));  // InSine
       // return ((0 < x) - (x < 0)) * 32 * (x * x / 1024);  // InSquare
       // return 32 * (x * x * x / 32768);  // InCubic
       // return ((0 < x) - (x < 0)) * (32 - std::sqrt(1024 - x * x));  // InCirc
-      return x;  // Linear
+      // return x;  // Linear
     };
 
     const double lo_cot = easing(-32.0 + 2. * slice);
@@ -265,19 +267,19 @@ ActsExamples::HoughTransformSeeder::createLayerHoughHist(unsigned layer,
       Axis(0, m_cfg.houghHistSize_y, m_cfg.houghHistSize_y),
       Axis(0, m_cfg.houghHistSize_x, m_cfg.houghHistSize_x));
 
-  for (const auto& m :
-       houghMeasurementStructs |
-           std::views::filter(
-               [layer, subregion,
-                this](const std::shared_ptr<HoughMeasurementStruct>& meas) {
-                 return meas->layer == layer &&
-                        m_cfg.sliceTester(meas, subregion).value();
-               })) {
-    const HoughMeasurementStruct* meas = m.get();
+  auto filter_layer_slice =
+      [layer, subregion,
+       this](const std::shared_ptr<HoughMeasurementStruct>& meas) {
+        return meas->layer == layer &&
+               m_cfg.sliceTester(meas, subregion).value();
+      };
+
+  for (const auto& meas :
+       houghMeasurementStructs | std::views::filter(filter_layer_slice)) {
     const int index =
         std::distance(houghMeasurementStructs.begin(),
                       std::find(houghMeasurementStructs.begin(),
-                                houghMeasurementStructs.end(), m));
+                                houghMeasurementStructs.end(), meas));
     for (unsigned y_ = 0; y_ < m_cfg.houghHistSize_y; y_++) {
       const unsigned y_bin_min = y_;
       const unsigned y_bin_max = (y_ + 1);
