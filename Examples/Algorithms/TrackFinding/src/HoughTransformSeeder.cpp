@@ -160,9 +160,9 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
     }
 
     auto easing = [](double x) {
-      return ((0 < x) - (x < 0)) * 32 *
-             (1 - std::cos((x * std::numbers::pi) / 64));  // InSine
-      // return ((0 < x) - (x < 0)) * 32 * (x * x / 1024);  // InSquare
+      // return ((0 < x) - (x < 0)) * 32 *
+      // (1 - std::cos((x * std::numbers::pi) / 64));  // InSine
+      return ((0 < x) - (x < 0)) * 32 * (x * x / 1024);  // InSquare
       // return 32 * (x * x * x / 32768);  // InCubic
       // return ((0 < x) - (x < 0)) * (32 - std::sqrt(1024 - x * x));  // InCirc
       // return x;  // Linear
@@ -519,7 +519,7 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
   // construct the combined input container of space point pointers from all
   // configured input sources.
 
-  auto file = TFile::Open("zr.root", "recreate");
+  // auto file = TFile::Open("zr.root", "recreate");
   std::vector<TH2F> zr;
   for (int i = 0; i < 32; ++i) {
     const auto name = std::format("zr_{}", i);
@@ -554,15 +554,15 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
           std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
               hitlayer.value(), phi, r, z, eta, indices, HoughHitType::SP));
       houghMeasurementStructs.push_back(meas);
-      for (int i = 0; i < 32; ++i) {
-        if (m_cfg.sliceTester(meas, i).value()) {
-          zr[i].Fill(z, r);
-        }
-      }
+      // for (int i = 0; i < 32; ++i) {
+      //   if (m_cfg.sliceTester(meas, i).value()) {
+      //     zr[i].Fill(z, r);
+      //   }
+      // }
     }
   }
-  file->Write();
-  file->Close();
+  // file->Write();
+  // file->Close();
 }
 
 void ActsExamples::HoughTransformSeeder::addMeasurements(
