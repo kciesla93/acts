@@ -520,11 +520,11 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
   // configured input sources.
 
   // auto file = TFile::Open("zr.root", "recreate");
-  std::vector<TH2F> zr;
-  for (int i = 0; i < 32; ++i) {
-    const auto name = std::format("zr_{}", i);
-    zr.emplace_back(name.c_str(), name.c_str(), 600, -3000, 3000, 120, 0, 1200);
-  }
+  // std::vector<TH2F> zr;
+  // for (int i = 0; i < 32; ++i) {
+  //   const auto name = std::format("zr_{}", i);
+  //   zr.emplace_back(name.c_str(), name.c_str(), 600, -3000, 3000, 120, 0, 1200);
+  // }
   for (const auto& isp : m_inputSpacePoints) {
     const auto& spContainer = (*isp)(ctx);
     ACTS_DEBUG("Inserting " << spContainer.size() << " space points from "
