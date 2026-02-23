@@ -261,7 +261,7 @@ class HoughTransformSeeder final : public IAlgorithm {
 
     std::uint32_t truthThreshold = 5;
 
-    Binning binning = Binning::EqudistantQoverPt;
+    Binning binning = Binning::FinerCentral;
     Slicing slicing = Slicing::Wedges;
 
     bool writeToSingleFile = false;  // Defaults to false for now

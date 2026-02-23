@@ -171,6 +171,12 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
         unquant(m_cfg.xMin, m_cfg.xMax, m_cfg.houghHistSize_x, i));
   }
 
+  const int fineBins = 50;
+  const float fineFactor = 4.;
+  if (m_cfg.binning == Binning::FinerCentral) {
+    m_step_y = (m_cfg.yMax - m_cfg.yMin) / (fineBins + fineFactor * (m_cfg.houghHistSize_y - fineBins));
+  }
+
   for (unsigned i = 0; i <= m_cfg.houghHistSize_y; i++) {
     if (m_cfg.binning == Binning::EqudistantQoverPt) {
       m_bins_y.push_back(
@@ -183,7 +189,7 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
                                       m_cfg.houghHistSize_y, 54, i));
     } else if (m_cfg.binning == Binning::FinerCentral) {
       m_bins_y.push_back(unquantFinerCentral(m_bins_y.back(), m_step_y,
-                                             m_cfg.houghHistSize_y, 72, 4., i));
+                                             m_cfg.houghHistSize_y, fineBins, fineFactor, i));
     }
   }
 
@@ -556,10 +562,10 @@ static inline double unquantFinerCentral(double previous, double stepSize,
   }
 
   const unsigned half = nSteps / 2;
-  if (iStep <= from / factor || iStep > nSteps - from / factor) {
-    return previous + stepSize * factor;
+  if (iStep <= half -  from / 2 || iStep > nSteps - half + from / 2) {
+    return previous + factor * stepSize;
   } else {
-    return previous + stepSize * (half - from) / (half - from / factor);
+    return previous + stepSize;
   }
 }
 
