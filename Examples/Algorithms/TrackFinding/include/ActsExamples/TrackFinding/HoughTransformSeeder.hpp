@@ -447,8 +447,8 @@ struct Wedge {
   Wedge(Reg z, Reg eta) {
     aleft = std::tan(2.0 * std::atan(std::exp(-(eta.center - eta.width))));
     aright = std::tan(2.0 * std::atan(std::exp(-(eta.center + eta.width))));
-    bleft = -aleft / (z.center - z.width);
-    bright = -aright / (z.center + z.width);
+    bleft = aleft * z.width;
+    bright = -aright * z.width;
   }
 
   bool in_rZ(float r, float z) const {
@@ -467,8 +467,9 @@ struct Wedge {
 
 static constexpr std::size_t nWedges = 13;
 static constexpr float etaWidth = 0.23076923076923078;
+static constexpr float zCenter = 0;   // [mm]
 static constexpr float zWidth = 150;  // [mm]
-static constexpr Reg z{0, 1. / zWidth};
+static constexpr Reg z{zCenter, zWidth};
 
 static std::array<Wedge, nWedges> wedges{{
     {z, {-2.769230769230769, etaWidth}},
