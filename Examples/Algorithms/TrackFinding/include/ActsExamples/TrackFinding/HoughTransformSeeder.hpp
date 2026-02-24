@@ -439,36 +439,19 @@ struct Reg {
 };
 
 struct Wedge {
-  Reg phi;
   float aleft;
   float aright;
   float bleft;
   float bright;
 
-  Wedge(Reg p, Reg z, Reg eta) : phi(p) {
+  Wedge(Reg z, Reg eta) {
     aleft = std::tan(2.0 * std::atan(std::exp(-(eta.center - eta.width))));
     aright = std::tan(2.0 * std::atan(std::exp(-(eta.center + eta.width))));
     bleft = -aleft / (z.center - z.width);
     bright = -aright / (z.center + z.width);
   }
 
-  static float delta_phi(float phi1, float phi2) {
-    float delta = phi1 - phi2;
-    while (delta > std::numbers::pi) {
-      delta -= std::numbers::pi;
-    }
-    while (delta < -std::numbers::pi) {
-      delta += std::numbers::pi;
-    }
-
-    return delta;
-  }
-
-  bool in_rPhiZ(float r, float p, float z) const {
-    if (std::fabs(delta_phi(p, phi.center)) > phi.width) {
-      return false;
-    }
-
+  bool in_rZ(float r, float z) const {
     const float lhs = aleft * z + bleft;
     const float rhs = aright * z + bright;
 
@@ -485,23 +468,22 @@ struct Wedge {
 static constexpr std::size_t nWedges = 13;
 static constexpr float etaWidth = 0.23076923076923078;
 static constexpr float zWidth = 150;  // [mm]
-static constexpr Reg phi{0, std::numbers::pi};
 static constexpr Reg z{0, 1. / zWidth};
 
 static std::array<Wedge, nWedges> wedges{{
-    {phi, z, {-2.769230769230769, etaWidth}},
-    {phi, z, {-2.3076923076923075, etaWidth}},
-    {phi, z, {-1.8461538461538458, etaWidth}},
-    {phi, z, {-1.3846153846153846, etaWidth}},
-    {phi, z, {-0.9230769230769229, etaWidth}},
-    {phi, z, {-0.4615384615384613, etaWidth}},
-    {phi, z, {0, etaWidth}},
-    {phi, z, {0.4615384615384616, etaWidth}},
-    {phi, z, {0.9230769230769234, etaWidth}},
-    {phi, z, {1.384615384615385, etaWidth}},
-    {phi, z, {1.8461538461538467, etaWidth}},
-    {phi, z, {2.3076923076923084, etaWidth}},
-    {phi, z, {2.769230769230769, etaWidth}},
+    {z, {-2.769230769230769, etaWidth}},
+    {z, {-2.3076923076923075, etaWidth}},
+    {z, {-1.8461538461538458, etaWidth}},
+    {z, {-1.3846153846153846, etaWidth}},
+    {z, {-0.9230769230769229, etaWidth}},
+    {z, {-0.4615384615384613, etaWidth}},
+    {z, {0, etaWidth}},
+    {z, {0.4615384615384616, etaWidth}},
+    {z, {0.9230769230769234, etaWidth}},
+    {z, {1.384615384615385, etaWidth}},
+    {z, {1.8461538461538467, etaWidth}},
+    {z, {2.3076923076923084, etaWidth}},
+    {z, {2.769230769230769, etaWidth}},
 }};
 }  // namespace Wedges
 

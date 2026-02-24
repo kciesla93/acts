@@ -174,7 +174,8 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   const int fineBins = 50;
   const float fineFactor = 4.;
   if (m_cfg.binning == Binning::FinerCentral) {
-    m_step_y = (m_cfg.yMax - m_cfg.yMin) / (fineBins + fineFactor * (m_cfg.houghHistSize_y - fineBins));
+    m_step_y = (m_cfg.yMax - m_cfg.yMin) /
+               (fineBins + fineFactor * (m_cfg.houghHistSize_y - fineBins));
   }
 
   for (unsigned i = 0; i <= m_cfg.houghHistSize_y; i++) {
@@ -189,7 +190,8 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
                                       m_cfg.houghHistSize_y, 54, i));
     } else if (m_cfg.binning == Binning::FinerCentral) {
       m_bins_y.push_back(unquantFinerCentral(m_bins_y.back(), m_step_y,
-                                             m_cfg.houghHistSize_y, fineBins, fineFactor, i));
+                                             m_cfg.houghHistSize_y, fineBins,
+                                             fineFactor, i));
     }
   }
 
@@ -234,7 +236,7 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
     }
 
     return ResultBool::success(
-        Wedges::wedges[slice].in_rPhiZ(meas->radius, meas->phi, meas->z));
+        Wedges::wedges[slice].in_rZ(meas->radius, meas->z));
   };
 
   switch (m_cfg.slicing) {
@@ -562,7 +564,7 @@ static inline double unquantFinerCentral(double previous, double stepSize,
   }
 
   const unsigned half = nSteps / 2;
-  if (iStep <= half -  from / 2 || iStep > nSteps - half + from / 2) {
+  if (iStep <= half - from / 2 || iStep > nSteps - half + from / 2) {
     return previous + factor * stepSize;
   } else {
     return previous + stepSize;
