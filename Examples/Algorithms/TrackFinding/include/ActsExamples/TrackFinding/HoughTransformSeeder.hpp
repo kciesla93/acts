@@ -453,11 +453,12 @@ struct Wedge {
   }
 
   static float delta_phi(float phi1, float phi2) {
-    const float delta = phi1 - phi2;
-    if (delta > std::numbers::pi) {
-      return delta - std::numbers::pi;
-    } else if (delta < 0) {
-      return delta + std::numbers::pi;
+    float delta = phi1 - phi2;
+    while (delta > std::numbers::pi) {
+      delta -= std::numbers::pi;
+    }
+    while (delta < -std::numbers::pi) {
+      delta += std::numbers::pi;
     }
 
     return delta;
