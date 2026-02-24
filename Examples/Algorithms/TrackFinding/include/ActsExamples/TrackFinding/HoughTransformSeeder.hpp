@@ -454,10 +454,10 @@ struct Wedge {
 
   static float delta_phi(float phi1, float phi2) {
     const float delta = phi1 - phi2;
-    if (delta > M_PI) {
-      return delta - M_PI;
+    if (delta > std::numbers::pi) {
+      return delta - std::numbers::pi;
     } else if (delta < 0) {
-      return delta + M_PI;
+      return delta + std::numbers::pi;
     }
 
     return delta;
@@ -468,19 +468,23 @@ struct Wedge {
       return false;
     }
 
+    const float lhs = aleft * z + bleft;
+    const float rhs = aright * z + bright;
+
     if (aleft > 0 && aright > 0) {
-      return aleft * z + bleft > r && r > aright * z + bright;
+      return lhs > r && r > rhs;
     } else if (aleft < 0 && aright > 0) {
-      return aleft * z + bleft < r && r > aright * z + bright;
+      return lhs < r && r > rhs;
     }
-    return aleft * z + bleft < r && r < aright * z + bright;
+
+    return lhs < r && r < rhs;
   }
 };
 
 static constexpr std::size_t nWedges = 13;
 static constexpr float etaWidth = 0.23076923076923078;
 static constexpr float zWidth = 150;  // [mm]
-static constexpr Reg phi{0, M_PI};
+static constexpr Reg phi{0, std::numbers::pi};
 static constexpr Reg z{0, 1. / zWidth};
 
 static std::array<Wedge, nWedges> wedges{{
