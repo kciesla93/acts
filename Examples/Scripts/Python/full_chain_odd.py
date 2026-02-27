@@ -38,6 +38,7 @@ from acts.examples.reconstruction import (
     SeedFilterMLDBScanConfig,
     SeedingAlgorithm,
 )
+from acts.examples.root import RootParticleWriter
 from acts.examples.odd import getOpenDataDetector, getOpenDataDetectorDirectory
 
 u = acts.UnitConstants
@@ -352,6 +353,16 @@ addDigiParticleSelection(
         removeSecondaries=True,
         nMeasurementsGroupMin=measurementCounter,
     ),
+)
+
+customLogLevel = acts.examples.defaultLogging(s, None)
+s.addWriter(
+    RootParticleWriter(
+        level=customLogLevel(),
+        inputParticles='particles_digitized_selected',
+        bField=field,
+        filePath=str(outputDir / "particles_selected.root"),
+    )
 )
 
 if args.reco:

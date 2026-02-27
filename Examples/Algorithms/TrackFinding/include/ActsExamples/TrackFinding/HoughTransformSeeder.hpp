@@ -315,8 +315,7 @@ class HoughTransformSeeder final : public IAlgorithm {
   ReadDataHandle<MeasurementParticlesMap> m_inputMeasurementParticlesMap{
       this, "measurement_particles_map"};
 
-  ReadDataHandle<SimParticleContainer> m_inputParticles{this,
-                                                        "particles_simulated"};
+  ReadDataHandle<SimParticleContainer> m_inputParticles{this, "TruthParticles"};
 
   ////////////////////////////////////////////////////////////////////////
   /// Convenience
