@@ -259,7 +259,10 @@ class HoughTransformSeeder final : public IAlgorithm {
         .xRecenterSize = 3,
         .yRecenterSize = 3};
 
-    std::uint32_t truthThreshold = 5;
+    std::uint32_t truthHoughThreshold = 5;
+    std::uint32_t truthNhits = 7;
+    float truthDzCut = 150;  // [mm]
+    float truthPtCut = 1;    // [GeV]
 
     Binning binning = Binning::FinerCentral;
     Slicing slicing = Slicing::Wedges;

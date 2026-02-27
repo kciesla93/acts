@@ -95,7 +95,7 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   m_outputProtoTracks.initialize(m_cfg.outputProtoTracks);
   m_inputMeasurements.initialize(m_cfg.inputMeasurements);
   m_inputMeasurementParticlesMap.initialize("measurement_particles_map");
-  m_inputParticles.initialize("particles_simulated");
+  m_inputParticles.initialize("particles_digitized_selected");
 
   if (!m_cfg.trackingGeometry) {
     throw std::invalid_argument(
@@ -299,10 +299,10 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
                 return sum | 0x1 << layer;
               });
           hough_hist->SetBinContent(y + 1, x + 1, bits);
-          ACTS_DEBUG(std::format("bitmask={} n_bits={}",
+          ACTS_DEBUG(std::format("\tbitmask={} n_bits={}",
                                  std::bitset<16>(bits).to_string(), entries));
 
-          if (entries < m_cfg.truthThreshold) {
+          if (entries < m_cfg.truthHoughThreshold) {
             continue;
           }
 
@@ -340,10 +340,8 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
                              [hash](const SimParticle& p) {
                                return p.particleId().hash() == hash;
                              });
-            if (particle != particles.end() &&
-                particle->transverseMomentum() > 1.) {
-              ACTS_DEBUG(std::format("particle={} pt={}", hash,
-                                     particle->transverseMomentum()));
+            if (particle != particles.end()) {
+              ACTS_DEBUG("adding particle=" << hash);
               m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash,
                                   count);
             }
@@ -721,20 +719,27 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
   // construct the combined input container of space point pointers from all
   // configured input sources.
 
-  // auto file = TFile::Open("hitmaps.root", "recreate");
-  // std::unordered_map<int, TH2F> zr, xy;
-  // for (int slice : m_cfg.subRegions) {
-  //   {
-  //     const auto name = (slice == -1) ? "zr_all" : std::format("zr_{}",
-  //     slice); zr[slice] = {name.c_str(), name.c_str(), 800, -3200, 3200, 400,
-  //     0, 1200};
-  //   }
-  //   {
-  //     const auto name = (slice == -1) ? "xy_all" : std::format("xy_{}",
-  //     slice); xy[slice] = {name.c_str(), name.c_str(), 400,   -1200,
-  //                  1200,         400,          -1200, 1200};
-  //   }
-  // }
+  const bool firstEvent = ctx.eventNumber == 0;
+  TFile* file = nullptr;
+  std::unordered_map<int, TH2F> zr, xy;
+
+  if (firstEvent) {
+    file = TFile::Open("hitmaps.root", "recreate");
+    for (int slice : m_cfg.subRegions) {
+      {
+        const auto name =
+            (slice == -1) ? "zr_all" : std::format("zr_{}", slice);
+        zr[slice] = {name.c_str(), name.c_str(), 800, -3200,
+                     3200,         400,          0,   1200};
+      }
+      {
+        const auto name =
+            (slice == -1) ? "xy_all" : std::format("xy_{}", slice);
+        xy[slice] = {name.c_str(), name.c_str(), 400,   -1200,
+                     1200,         400,          -1200, 1200};
+      }
+    }
+  }
   for (const auto& isp : m_inputSpacePoints) {
     const auto& spContainer = (*isp)(ctx);
     ACTS_DEBUG("Inserting " << spContainer.size() << " space points from "
@@ -764,19 +769,23 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
           std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
               hitlayer.value(), phi, r, z, eta, indices, HoughHitType::SP));
       houghMeasurementStructs.push_back(meas);
-      // for (int slice : m_cfg.subRegions) {
-      //   if (m_cfg.sliceTester(meas, slice).value()) {
-      //     zr[slice].Fill(z, r);
-      //     if ((r < 200 && std::fabs(z) < 600) ||
-      //         (r > 200 && std::fabs(z) < 1200)) {
-      //       xy[slice].Fill(sp.x(), sp.y());
-      //     }
-      //   }
-      // }
+      if (firstEvent) {
+        for (int slice : m_cfg.subRegions) {
+          if (m_cfg.sliceTester(meas, slice).value()) {
+            zr[slice].Fill(z, r);
+            if ((r < 200 && std::fabs(z) < 600) ||
+                (r > 200 && std::fabs(z) < 1200)) {
+              xy[slice].Fill(sp.x(), sp.y());
+            }
+          }
+        }
+      }
     }
   }
-  // file->Write();
-  // file->Close();
+  if (firstEvent) {
+    file->Write();
+    file->Close();
+  }
 }
 
 void ActsExamples::HoughTransformSeeder::addMeasurements(

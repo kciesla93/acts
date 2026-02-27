@@ -322,13 +322,35 @@ addDigitization(
     rnd=rnd,
 )
 
+def make_geoid(vol=None, lay=None):
+    geoid = acts.GeometryIdentifier()
+    if vol is not None:
+        geoid.volume = vol
+    if lay is not None:
+        geoid.layer = lay
+    return geoid
+
+
+measurementCounter = acts.examples.ParticleSelector.MeasurementCounter()
+measurementCounter.addCounter([
+    make_geoid(16),
+    make_geoid(17),
+    make_geoid(18),
+], 3, 2**32 - 1)
+measurementCounter.addCounter([
+    make_geoid(17, 2),
+], 1, 2**32 - 1)
+
 addDigiParticleSelection(
     s,
     ParticleSelectorConfig(
-        pt=(1.0 * u.GeV, None),
+        absZ=(0.0, 150 * u.mm),
         eta=(-3.0, 3.0),
-        measurements=(9, None),
+        pt=(1 * u.GeV, None),
+        measurements=(6, None),
         removeNeutral=True,
+        removeSecondaries=True,
+        nMeasurementsGroupMin=measurementCounter,
     ),
 )
 
