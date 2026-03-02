@@ -307,23 +307,20 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
           }
 
           // Find truth particle contributing the most
-          std::vector<std::pair<std::uint64_t, std::uint32_t>>
-              particlesHashWeight;
+          std::vector<std::uint64_t> particle_hashes;
           for (const HoughMeasurement index : m_houghHist.hitIds(y, x)) {
-            const bool isPixel = houghMeasurementStructs[index]->radius < 200;
             for (const Index measurement_index :
                  houghMeasurementStructs[index]->indices) {
-              particlesHashWeight.emplace_back(
-                  measurementParticleMap.find(measurement_index)->second.hash(),
-                  isPixel ? 2 : 1);
+              particle_hashes.push_back(
+                  measurementParticleMap.find(measurement_index)
+                      ->second.hash());
             }
           }
-          ACTS_DEBUG(
-              std::format("n_measurements={}", particlesHashWeight.size()));
+          ACTS_DEBUG(std::format("n_measurements={}", particle_hashes.size()));
 
           std::map<std::uint64_t, std::uint32_t> counts;
-          for (const auto& [barcode, weight] : particlesHashWeight) {
-            counts[barcode] += weight;
+          for (std::uint64_t barcode : particle_hashes) {
+            counts[barcode]++;
           }
 
           if (logger().doPrint(Acts::Logging::DEBUG)) {
@@ -337,7 +334,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
                 return lhs.second < rhs.second;
               });
 
-          if (count * 2 >= particlesHashWeight.size()) {
+          if (count * 2 >= particle_hashes.size()) {
             const auto particle =
                 std::find_if(particles.begin(), particles.end(),
                              [hash](const SimParticle& p) {
