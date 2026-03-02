@@ -348,7 +348,7 @@ addDigiParticleSelection(
         absZ=(0.0, 150 * u.mm),
         eta=(-3.0, 3.0),
         pt=(1 * u.GeV, None),
-        measurements=(6, None),
+        measurements=(7, None),
         removeNeutral=True,
         removeSecondaries=True,
         nMeasurementsGroupMin=measurementCounter,
