@@ -398,9 +398,9 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     //     peaks_name.c_str(), peaks_title.c_str(), m_cfg.houghHistSize_y,
     //     m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
     //
-    // const auto all_peaks = slidingWindowPeaks(m_houghHist, m_cfg.slidingWindow);
-    // ACTS_DEBUG(std::format("Found {} peaks", all_peaks.size()));
-    // for (const auto& peak : all_peaks) {
+    // const auto all_peaks = slidingWindowPeaks(m_houghHist,
+    // m_cfg.slidingWindow); ACTS_DEBUG(std::format("Found {} peaks",
+    // all_peaks.size())); for (const auto& peak : all_peaks) {
     //   ACTS_DEBUG(std::format("peak=({},{}) bin=({},{})", m_bins_y[peak[0]],
     //                          m_bins_x[peak[1]], peak[0] + 1, peak[1] + 1));
     //   peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
@@ -601,7 +601,8 @@ double ActsExamples::HoughTransformSeeder::yToX(double y, double r,
                                                 double phi) const {
   double d0 = 0;  // d0 correction TO DO allow for this
   double x =
-      std::asin(r * ActsExamples::HoughTransformSeeder::m_cfg.kA * y - d0 / r) +
+      std::asin(0.5 * r * ActsExamples::HoughTransformSeeder::m_cfg.kA * y -
+                d0 / r) +
       phi;
 
   if (m_cfg.fieldCorrector.connected()) {

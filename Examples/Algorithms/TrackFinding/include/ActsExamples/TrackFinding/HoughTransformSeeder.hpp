@@ -239,10 +239,9 @@ class HoughTransformSeeder final : public IAlgorithm {
 
     int localMaxWindowSize = 0;  // Only create candidates from a local maximum
 
-    double kA = 0.0003;  // Assume B = 2T constant. Can apply corrections to
-                         // this with fieldCorrection function
-                         // This 3e-4 comes from the 2T field when converted to
-                         // units of GeV / (c*mm*e)
+    static constexpr double conversionFactor = 2.998e-4;  // T → GeV / (c*mm*e)
+    double kA =
+        2. * conversionFactor;  // B = 2 T converted to units of GeV / (c*mm*e)
 
     // it's up to the user to connect these to the functions they want to use
     FieldCorrector fieldCorrector;

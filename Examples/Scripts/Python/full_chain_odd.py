@@ -144,6 +144,12 @@ parser.add_argument(
     default=True,
     action=argparse.BooleanOptionalAction,
 )
+parser.add_argument(
+    "--seed",
+    help="Random number generator seed",
+    type=int,
+    default=42,
+)
 
 args = parser.parse_args()
 
@@ -176,7 +182,7 @@ detector = getOpenDataDetector(odd_dir=geoDir, materialDecorator=oddMaterialDeco
 trackingGeometry = detector.trackingGeometry()
 decorators = detector.contextDecorators()
 field = acts.ConstantBField(acts.Vector3(0.0, 0.0, 2.0 * u.T))
-rnd = acts.examples.RandomNumbers(seed=42)
+rnd = acts.examples.RandomNumbers(seed=args.seed)
 
 s = acts.examples.Sequencer(
     events=args.events,
