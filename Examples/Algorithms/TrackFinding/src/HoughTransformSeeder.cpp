@@ -102,6 +102,20 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
         "HoughTransformSeeder: Missing tracking geometry");
   }
 
+  if (!m_cfg.bField) {
+    throw std::invalid_argument(
+        "HoughTransformSeeder: Missing field definition");
+  }
+
+  const Acts::MagneticFieldContext magContext;
+  auto fieldCache = m_cfg.bField->makeCache(magContext);
+  auto bField = m_cfg.bField->getField({0, 0, 0}, fieldCache);
+  if (!bField.ok()) {
+    throw std::invalid_argument(
+        "HoughTransformSeeder: Missing field definition");
+  }
+  m_bFieldZ = (*bField)[2];
+
   if (m_cfg.geometrySelection.empty()) {
     throw std::invalid_argument(
         "HoughTransformSeeder: Missing geometry selection");
@@ -600,10 +614,7 @@ static inline std::string to_string(std::vector<T> v) {
 double ActsExamples::HoughTransformSeeder::yToX(double y, double r,
                                                 double phi) const {
   double d0 = 0;  // d0 correction TO DO allow for this
-  double x =
-      std::asin(0.5 * r * ActsExamples::HoughTransformSeeder::m_cfg.kA * y -
-                d0 / r) +
-      phi;
+  double x = std::asin(0.5 * r * m_bFieldZ * y - d0 / r) + phi;
 
   if (m_cfg.fieldCorrector.connected()) {
     x += (m_cfg.fieldCorrector(0, y, r)).value();

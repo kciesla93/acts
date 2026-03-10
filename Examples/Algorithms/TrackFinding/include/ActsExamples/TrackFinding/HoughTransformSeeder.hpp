@@ -71,6 +71,7 @@
 #pragma once
 
 #include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "Acts/Seeding/HoughTransformUtils.hpp"
 #include "Acts/Utilities/Delegate.hpp"
 #include "Acts/Utilities/Logger.hpp"
@@ -183,6 +184,8 @@ class HoughTransformSeeder final : public IAlgorithm {
     std::string outputProtoTracks;
     /// Tracking geometry required to access global-to-local transforms.
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry;
+    /// Magnetic field
+    std::shared_ptr<const Acts::MagneticFieldProvider> bField;
     /// For which part of the detector geometry should space points be created.
     ///
     /// Only volumes and layers can be set. Zero values can be used as wildcards
@@ -238,10 +241,6 @@ class HoughTransformSeeder final : public IAlgorithm {
              // expanded in the future if we want to be more clever
 
     int localMaxWindowSize = 0;  // Only create candidates from a local maximum
-
-    static constexpr double conversionFactor = 2.998e-4;  // T → GeV / (c*mm*e)
-    double kA =
-        2. * conversionFactor;  // B = 2 T converted to units of GeV / (c*mm*e)
 
     // it's up to the user to connect these to the functions they want to use
     FieldCorrector fieldCorrector;
@@ -355,6 +354,8 @@ class HoughTransformSeeder final : public IAlgorithm {
 
   struct Writer;
   std::unique_ptr<Writer> m_writer;
+
+  double m_bFieldZ;
 };
 
 struct ActsExamples::HoughTransformSeeder::Writer {
