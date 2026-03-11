@@ -138,7 +138,7 @@ namespace ActsExamples {
 /// each bin. Size m_houghHistSize_y * m_houghHistSize_x. (NOTE y is row
 /// coordinate) For now, what is stored is actually the index of the object in
 /// the vectors, so we can get the Index layer
-using HoughMeasurement = unsigned;  // measurement index
+using HoughMeasurement = std::uint64_t;  // measurement index
 using HoughHist = Acts::HoughTransformUtils::HoughPlane<HoughMeasurement>;
 
 enum HoughHitType { SP = 0, MEASUREMENT = 1 };
@@ -208,7 +208,7 @@ class HoughTransformSeeder final : public IAlgorithm {
     std::vector<int> subRegions = {-1, 0, 1, 2, 3,  4,  5,
                                    6,  7, 8, 9, 10, 11, 12};
 
-    unsigned nLayers = 10;  // total number of layers
+    unsigned nLayers = 48;  // total number of layers
 
     float xMin = -std::numbers::pi;  // minphi
     float xMax = std::numbers::pi;   // maxphi

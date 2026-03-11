@@ -46,12 +46,14 @@ static inline double unquantEqudistantPt(double min, double max,
 static inline double unquantFinerCentral(double previous, double stepSize,
                                          unsigned nSteps, unsigned int from,
                                          double factor, unsigned iStep);
+static inline unsigned geoIdToLayerNumber(
+    const Acts::GeometryIdentifier& geoId);
 template <typename T>
 static inline std::string to_string(std::vector<T> v);
 
 thread_local std::vector<std::shared_ptr<ActsExamples::HoughMeasurementStruct>>
     houghMeasurementStructs;
-thread_local std::unordered_set<int> populatedLayers;
+thread_local std::unordered_set<unsigned> populatedLayers;
 
 ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
     ActsExamples::HoughTransformSeeder::Config cfg, Acts::Logging::Level lvl)
@@ -302,19 +304,19 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
       for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
         if (unsigned entries = m_houghHist.nLayers(y, x); entries > 0) {
-          ACTS_DEBUG(std::format("bin (q/pT, phi) = ({}, {})", y, x));
+          ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
           // Flat layers
-          // hh_hist->SetBinContent(y + 1, x + 1, entries);
+          hough_hist->SetBinContent(y + 1, x + 1, entries);
 
           // Bit pattern
-          const std::uint16_t bits = std::accumulate(
+          const std::uint64_t bits = std::accumulate(
               m_houghHist.layers(y, x).begin(), m_houghHist.layers(y, x).end(),
-              std::uint16_t{}, [](std::uint16_t sum, std::uint16_t layer) {
+              std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
                 return sum | 0x1 << layer;
               });
-          hough_hist->SetBinContent(y + 1, x + 1, bits);
-          ACTS_DEBUG(std::format("\tbitmask={} n_bits={}",
-                                 std::bitset<16>(bits).to_string(), entries));
+          // hough_hist->SetBinContent(y + 1, x + 1, bits);
+          ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
+                                   std::bitset<48>(bits).to_string(), entries));
 
           if (entries < m_cfg.truthHoughThreshold) {
             continue;
@@ -330,16 +332,17 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
                       ->second.hash());
             }
           }
-          ACTS_DEBUG(std::format("n_measurements={}", particle_hashes.size()));
+          ACTS_VERBOSE(
+              std::format("n_measurements={}", particle_hashes.size()));
 
           std::map<std::uint64_t, std::uint32_t> counts;
           for (std::uint64_t barcode : particle_hashes) {
             counts[barcode]++;
           }
 
-          if (logger().doPrint(Acts::Logging::DEBUG)) {
+          if (logger().doPrint(Acts::Logging::VERBOSE)) {
             for (const auto& [hash, count] : counts) {
-              ACTS_DEBUG(std::format("\t{} -> {}", hash, count));
+              ACTS_VERBOSE(std::format("\t{} -> {}", hash, count));
             }
           }
 
@@ -355,7 +358,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
                                return p.particleId().hash() == hash;
                              });
             if (particle != particles.end()) {
-              ACTS_DEBUG("adding particle=" << hash);
+              ACTS_VERBOSE("adding particle=" << hash);
               m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash,
                                   count);
             }
@@ -599,6 +602,21 @@ static inline double unquantEqudistantPt(double min, double max,
   }
 }
 
+static inline unsigned geoIdToLayerNumber(
+    const Acts::GeometryIdentifier& geoId) {
+  assert(geoId.layer() != 0 && "Layer cannot be a wildcard");
+
+  const std::uint64_t volume = geoId.volume();
+  const std::uint64_t layer = geoId.layer() / 2 - 1;
+
+  static const std::unordered_map<std::uint64_t, int> shifts{
+      {16, 0},  {17, 7},  {18, 11}, {23, 18}, {24, 24},
+      {25, 28}, {28, 34}, {29, 40}, {30, 42},
+  };
+
+  return layer + shifts.at(volume);
+}
+
 template <typename T>
 static inline std::string to_string(std::vector<T> v) {
   std::ostringstream oss;
@@ -758,29 +776,28 @@ void ActsExamples::HoughTransformSeeder::addSpacePoints(
     ACTS_DEBUG("Inserting " << spContainer.size() << " space points from "
                             << isp->key());
     for (auto& sp : spContainer) {
+      const Acts::GeometryIdentifier& geoId =
+          sp.sourceLinks().at(0).get<IndexSourceLink>().geometryId();
       const double r = Acts::fastHypot(sp.x(), sp.y());
       const double z = sp.z();
       const float phi = std::atan2(sp.y(), sp.x());
       const double theta = std::atan2(r, z);
       const double eta = -std::log(std::tan(theta / 2.));
-      const ResultUnsigned hitlayer = m_cfg.layerIDFinder(r).value();
-      if (!(hitlayer.ok())) {
-        continue;
-      }
-      ACTS_DEBUG(std::format("{}: r={} z={} layer={}",
-                             r < 350 ? "PIXEL" : "STRIP", r, z,
-                             hitlayer.value()));
+      const unsigned hitLayer = geoIdToLayerNumber(geoId);
+      ACTS_DEBUG(std::format("{}: r={} z={} layer={}, geoVol={} geoLayer={}",
+                             r < 200 ? "PIXEL" : "STRIP", r, z, hitLayer,
+                             geoId.volume(), geoId.layer()));
       std::vector<Index> indices;
       for (const auto& slink : sp.sourceLinks()) {
         const auto& islink = slink.get<IndexSourceLink>();
         indices.push_back(islink.index());
       }
 
-      populatedLayers.insert(hitlayer.value());
+      populatedLayers.insert(hitLayer);
 
       auto meas =
           std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
-              hitlayer.value(), phi, r, z, eta, indices, HoughHitType::SP));
+              hitLayer, phi, r, z, eta, indices, HoughHitType::SP));
       houghMeasurementStructs.push_back(meas);
       if (firstEvent) {
         for (int slice : m_cfg.subRegions) {
@@ -856,16 +873,21 @@ void ActsExamples::HoughTransformSeeder::addMeasurements(
         const double z = globalPos[Acts::ePos2];
         const double theta = std::atan2(r, z);
         const double eta = -std::log(std::tan(theta / 2.));
-        const ResultUnsigned hitlayer = m_cfg.layerIDFinder(r);
-        if (hitlayer.ok()) {
-          std::vector<Index> index;
-          index.push_back(sourceLink.index());
-          populatedLayers.insert(hitlayer.value());
-          auto houghMeas = std::shared_ptr<HoughMeasurementStruct>(
-              new HoughMeasurementStruct(hitlayer.value(), phi, r, z, eta,
-                                         index, HoughHitType::MEASUREMENT));
-          houghMeasurementStructs.push_back(houghMeas);
-        }
+        // We are using `surface->geometryId()` instead of `geoId` to make sure
+        // we have layer information
+        const unsigned hitLayer = geoIdToLayerNumber(surface->geometryId());
+        const unsigned volume = surface->geometryId().volume();
+        ACTS_DEBUG(std::format("{}: r={} z={} layer={}, geoVol={} geoLayer={}",
+                               volume < 20 ? "PIXEL" : "STRIP", r, z, hitLayer,
+                               volume, surface->geometryId().layer()));
+
+        std::vector<Index> index;
+        index.push_back(sourceLink.index());
+        populatedLayers.insert(hitLayer);
+        auto houghMeas =
+            std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
+                hitLayer, phi, r, z, eta, index, HoughHitType::MEASUREMENT));
+        houghMeasurementStructs.push_back(houghMeas);
       }
     }
   }
