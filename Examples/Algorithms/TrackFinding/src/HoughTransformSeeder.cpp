@@ -216,30 +216,6 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   m_cfg.layerIDFinder
       .connect<&ActsExamples::DefaultHoughFunctions::findLayerIDDefault>();
 
-  auto slicerEquidistantEta =
-      [](const std::shared_ptr<HoughMeasurementStruct>& meas,
-         int slice) -> ResultBool {
-    if (slice == -1) {
-      return ResultBool::success(true);
-    }
-
-    auto easing = [](double x) {
-      // return ((0 < x) - (x < 0)) * 32 *
-      // (1 - std::cos((x * std::numbers::pi) / 64));  // InSine
-      return ((0 < x) - (x < 0)) * 11 * (x * x / 121.);  // InSquare
-      // return 32 * (x * x * x / 32768);  // InCubic
-      // return ((0 < x) - (x < 0)) * (32 - std::sqrt(1024 - x * x));  // InCirc
-      // return x;  // Linear
-    };
-
-    const double lo_cot = easing(-11.0 + 11. / 16 * slice);
-    const double hi_cot = easing(-11.0 + 11. / 16. * (slice + 1));
-    const double v1 = (meas->z + 200) / meas->radius;
-    const double v2 = (meas->z - 200) / meas->radius;
-
-    return ResultBool::success((v1 - lo_cot) * (v2 - hi_cot) < 0);
-  };
-
   auto slicerNone = [](const std::shared_ptr<HoughMeasurementStruct>&,
                        int slice) -> ResultBool {
     return ResultBool::success(slice == -1);
@@ -258,9 +234,6 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   switch (m_cfg.slicing) {
     case ActsExamples::Slicing::Wedges:
       m_cfg.sliceTester.connect<slicerWedges>();
-      break;
-    case ActsExamples::Slicing::EqudistantEta:
-      m_cfg.sliceTester.connect<slicerEquidistantEta>();
       break;
     case ActsExamples::Slicing::None:
       m_cfg.sliceTester.connect<slicerNone>();

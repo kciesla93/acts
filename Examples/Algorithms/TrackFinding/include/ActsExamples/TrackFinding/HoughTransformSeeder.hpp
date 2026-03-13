@@ -143,7 +143,7 @@ using HoughHist = Acts::HoughTransformUtils::HoughPlane<HoughMeasurement>;
 
 enum HoughHitType { SP = 0, MEASUREMENT = 1 };
 enum class Binning { EqudistantQoverPt, EqudistantPt, Steps, FinerCentral };
-enum class Slicing { None, EqudistantEta, Wedges };
+enum class Slicing { None, Wedges };
 
 /// The measurements and SP are ugly to use, this is a convenience struct that
 /// contains the needed information
