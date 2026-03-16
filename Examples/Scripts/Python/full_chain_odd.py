@@ -150,6 +150,12 @@ parser.add_argument(
     type=int,
     default=42,
 )
+parser.add_argument(
+    "--threads",
+    help="Number of threads to use",
+    type=int,
+    default=-1,
+)
 
 args = parser.parse_args()
 
@@ -187,7 +193,7 @@ rnd = acts.examples.RandomNumbers(seed=args.seed)
 s = acts.examples.Sequencer(
     events=args.events,
     skip=args.skip,
-    numThreads=1 if args.geant4 else -1,
+    numThreads=1 if args.geant4 else args.threads,
     outputDir=str(outputDir),
 )
 
