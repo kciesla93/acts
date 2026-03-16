@@ -26,7 +26,6 @@
 #include "ActsExamples/Framework/AlgorithmContext.hpp"
 #include "ActsExamples/TrackFinding/DefaultHoughFunctions.hpp"
 #include "ActsExamples/Utilities/GroupBy.hpp"
-#include "ActsFatras/EventData/Barcode.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -263,7 +262,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   // loop over our subregions and run the Hough Transform on each
   for (int subregion : m_cfg.subRegions) {
     ACTS_DEBUG("Processing subregion " << subregion);
-    ActsExamples::HoughHist m_houghHist = createHoughHist(subregion);
+    ActsExamples::HoughHist houghHist = createHoughHist(subregion);
 
     const auto hough_name =
         std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
@@ -276,14 +275,14 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
 
     for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
       for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
-        if (unsigned entries = m_houghHist.nLayers(y, x); entries > 0) {
+        if (unsigned entries = houghHist.nLayers(y, x); entries > 0) {
           ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
           // Flat layers
           hough_hist->SetBinContent(y + 1, x + 1, entries);
 
           // Bit pattern
           const std::uint64_t bits = std::accumulate(
-              m_houghHist.layers(y, x).begin(), m_houghHist.layers(y, x).end(),
+              houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
               std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
                 return sum | 0x1 << layer;
               });
@@ -297,7 +296,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
 
           // Find truth particle contributing the most
           std::vector<std::uint64_t> particle_hashes;
-          for (const HoughMeasurement index : m_houghHist.hitIds(y, x)) {
+          for (const HoughMeasurement index : houghHist.hitIds(y, x)) {
             for (const Index measurement_index :
                  houghMeasurementStructs[index]->indices) {
               particle_hashes.push_back(
@@ -338,7 +337,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
           }
         }
 
-        if (!passThreshold(m_houghHist, x, y)) {
+        if (!passThreshold(houghHist, x, y)) {
           continue;
         }
 
@@ -353,7 +352,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
         std::vector<std::vector<std::vector<Index>>> hitIndicesAll(
             m_cfg.nLayers);
         std::vector<std::size_t> nHitsPerLayer(m_cfg.nLayers);
-        for (auto measurementIndex : m_houghHist.hitIds(y, x)) {
+        for (auto measurementIndex : houghHist.hitIds(y, x)) {
           HoughMeasurementStruct* meas =
               houghMeasurementStructs[measurementIndex].get();
           hitIndicesAll[meas->layer].push_back(meas->indices);
