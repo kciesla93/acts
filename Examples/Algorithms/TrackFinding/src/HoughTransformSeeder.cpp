@@ -193,7 +193,8 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
                (fineBins + fineFactor * (m_cfg.houghHistSize_y - fineBins));
   }
 
-  for (unsigned i = 0; i <= m_cfg.houghHistSize_y; i++) {
+  m_bins_y.push_back(m_cfg.yMin);
+  for (unsigned i = 1; i <= m_cfg.houghHistSize_y; i++) {
     if (m_cfg.binning == Binning::EqudistantQoverPt) {
       m_bins_y.push_back(
           unquant(m_cfg.yMin, m_cfg.yMax, m_cfg.houghHistSize_y, i));
@@ -528,10 +529,6 @@ static inline double unquant(double min, double max, unsigned nSteps,
 static inline double unquantSteps(double previous, double stepSize,
                                   unsigned nSteps, unsigned from,
                                   unsigned iStep) {
-  if (iStep == 0) {
-    return -1;
-  }
-
   const unsigned half = nSteps / 2;
   const float factor = 2;
   if (iStep <= from / 2 || iStep > nSteps - from / 2) {
@@ -547,10 +544,6 @@ static inline double unquantSteps(double previous, double stepSize,
 static inline double unquantFinerCentral(double previous, double stepSize,
                                          unsigned nSteps, unsigned from,
                                          double factor, unsigned iStep) {
-  if (iStep == 0) {
-    return -1;
-  }
-
   const unsigned half = nSteps / 2;
   if (iStep <= half - from / 2 || iStep > nSteps - half + from / 2) {
     return previous + factor * stepSize;
