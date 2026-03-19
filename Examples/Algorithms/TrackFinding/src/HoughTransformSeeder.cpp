@@ -244,6 +244,15 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
 
 ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     const AlgorithmContext& ctx) const {
+  Acts::ScopedTimer executeTimer("HoughTransformSeeder::execute", *m_logger,
+                                 Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer loop_timer("HoughTransformSeeder::execute::loop",
+                                        *m_logger, Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer houghHist_timer(
+      "HoughTransformSeeder::fillHoughHist", *m_logger, Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer writeHist_timer("HoughTransformSeeder::writer",
+                                             *m_logger, Acts::Logging::DEBUG);
+
   // clear our Hough measurements out from the previous iteration, if at all
   houghMeasurementStructs.clear();
   populatedLayers.clear();
@@ -260,122 +269,135 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   static thread_local ProtoTrackContainer protoTracks;
   protoTracks.clear();
 
-  ActsExamples::HoughHist houghHist(m_cfg.plane);
+  // ActsExamples::HoughHist houghHist(m_cfg.plane);
+  ActsExamples::HoughHist houghHist = [this]() {
+    Acts::ScopedTimer createHoughHistTimer(
+        "HoughTransformSeeder::createHoughHist", *m_logger,
+        Acts::Logging::DEBUG);
+    return ActsExamples::HoughHist(m_cfg.plane);
+  }();
 
   // loop over our subregions and run the Hough Transform on each
   for (int subregion : m_cfg.subRegions) {
+    fillHoughHist(houghHist, subregion, houghHist_timer);
+
     ACTS_DEBUG("Processing subregion " << subregion);
 
-    fillHoughHist(houghHist, subregion);
+    auto hough_hist = [this, &ctx, subregion]() {
+      const auto hough_name =
+          std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
+      const auto hough_title =
+          std::format("event_{:06}_{:02};q/p_{{T}} [1/GeV];#varphi [rad]",
+                      ctx.eventNumber, subregion);
+      return std::make_unique<TH2S>(hough_name.c_str(), hough_title.c_str(),
+                                    m_cfg.houghHistSize_y, m_bins_y.data(),
+                                    m_cfg.houghHistSize_x, m_bins_x.data());
+    }();
 
-    const auto hough_name =
-        std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
-    const auto hough_title =
-        std::format("event_{:06}_{:02};q/p_{{T}} [1/GeV];#varphi [rad]",
-                    ctx.eventNumber, subregion);
-    auto hough_hist = std::make_unique<TH2S>(
-        hough_name.c_str(), hough_title.c_str(), m_cfg.houghHistSize_y,
-        m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
+    {
+      auto loopSample = loop_timer.sample();
+      for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
+        for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
+          if (unsigned entries = houghHist.nLayers(y, x); entries > 0) {
+            ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
+            // Flat layers
+            hough_hist->SetBinContent(y + 1, x + 1, entries);
 
-    for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
-      for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
-        if (unsigned entries = houghHist.nLayers(y, x); entries > 0) {
-          ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
-          // Flat layers
-          hough_hist->SetBinContent(y + 1, x + 1, entries);
+            // Bit pattern
+            const std::uint64_t bits = std::accumulate(
+                houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
+                std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
+                  return sum | 0x1 << layer;
+                });
+            // hough_hist->SetBinContent(y + 1, x + 1, bits);
+            ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
+                                     std::bitset<48>(bits).to_string(),
+                                     entries));
 
-          // Bit pattern
-          const std::uint64_t bits = std::accumulate(
-              houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
-              std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
-                return sum | 0x1 << layer;
-              });
-          // hough_hist->SetBinContent(y + 1, x + 1, bits);
-          ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
-                                   std::bitset<48>(bits).to_string(), entries));
-
-          if (entries < m_cfg.truthHoughThreshold) {
-            continue;
-          }
-
-          // Find truth particle contributing the most
-          std::vector<std::uint64_t> particle_hashes;
-          for (const HoughMeasurement index : houghHist.hitIds(y, x)) {
-            for (const Index measurement_index :
-                 houghMeasurementStructs[index]->indices) {
-              particle_hashes.push_back(
-                  measurementParticleMap.find(measurement_index)
-                      ->second.hash());
+            if (entries < m_cfg.truthHoughThreshold) {
+              continue;
             }
-          }
-          ACTS_VERBOSE(
-              std::format("n_measurements={}", particle_hashes.size()));
 
-          std::map<std::uint64_t, std::uint32_t> counts;
-          for (std::uint64_t barcode : particle_hashes) {
-            counts[barcode]++;
-          }
-
-          if (logger().doPrint(Acts::Logging::VERBOSE)) {
-            for (const auto& [hash, count] : counts) {
-              ACTS_VERBOSE(std::format("\t{} -> {}", hash, count));
+            // Find truth particle contributing the most
+            std::vector<std::uint64_t> particle_hashes;
+            for (const HoughMeasurement index : houghHist.hitIds(y, x)) {
+              for (const Index measurement_index :
+                   houghMeasurementStructs[index]->indices) {
+                particle_hashes.push_back(
+                    measurementParticleMap.find(measurement_index)
+                        ->second.hash());
+              }
             }
-          }
+            ACTS_VERBOSE(
+                std::format("n_measurements={}", particle_hashes.size()));
 
-          const auto& [hash, count] = *std::max_element(
-              counts.begin(), counts.end(), [](const auto lhs, const auto rhs) {
-                return lhs.second < rhs.second;
-              });
-
-          if (count * 2 >= particle_hashes.size()) {
-            const auto particle =
-                std::find_if(particles.begin(), particles.end(),
-                             [hash](const SimParticle& p) {
-                               return p.particleId().hash() == hash;
-                             });
-            if (particle != particles.end()) {
-              ACTS_VERBOSE("adding particle=" << hash);
-              m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash,
-                                  count);
+            std::map<std::uint64_t, std::uint32_t> counts;
+            for (std::uint64_t barcode : particle_hashes) {
+              counts[barcode]++;
             }
-          }
-        }
 
-        if (!passThreshold(houghHist, x, y)) {
-          continue;
-        }
+            if (logger().doPrint(Acts::Logging::VERBOSE)) {
+              for (const auto& [hash, count] : counts) {
+                ACTS_VERBOSE(std::format("\t{} -> {}", hash, count));
+              }
+            }
 
-        // FIXME: Disabling writing to containers temporarily to avoid memory
-        // issues when generating a ttbar sample with very high pile-up
-        continue;
+            const auto& [hash, count] =
+                *std::max_element(counts.begin(), counts.end(),
+                                  [](const auto lhs, const auto rhs) {
+                                    return lhs.second < rhs.second;
+                                  });
 
-        // Now we need to unpack the hits; there should be multiple track
-        // candidates if we have multiple hits in a given layer. So the first
-        // thing is to unpack the indices (which is what we need) by layer
-
-        std::vector<std::vector<std::vector<Index>>> hitIndicesAll(
-            m_cfg.nLayers);
-        std::vector<std::size_t> nHitsPerLayer(m_cfg.nLayers);
-        for (auto measurementIndex : houghHist.hitIds(y, x)) {
-          HoughMeasurementStruct* meas =
-              houghMeasurementStructs[measurementIndex].get();
-          hitIndicesAll[meas->layer].push_back(meas->indices);
-          nHitsPerLayer[meas->layer]++;
-        }
-
-        std::vector<std::vector<int>> combs = getComboIndices(nHitsPerLayer);
-
-        // Loop over all combinations.
-        for (auto [icomb, hit_indices] : Acts::enumerate(combs)) {
-          ProtoTrack protoTrack;
-          for (unsigned layer = 0; layer < m_cfg.nLayers; layer++) {
-            if (hit_indices[layer] >= 0) {
-              for (auto index : hitIndicesAll[layer][hit_indices[layer]]) {
-                protoTrack.push_back(index);
+            if (count * 2 >= particle_hashes.size()) {
+              const auto particle =
+                  std::find_if(particles.begin(), particles.end(),
+                               [hash](const SimParticle& p) {
+                                 return p.particleId().hash() == hash;
+                               });
+              if (particle != particles.end()) {
+                ACTS_VERBOSE("adding particle=" << hash);
+                m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash,
+                                    count);
               }
             }
           }
-          protoTracks.push_back(protoTrack);
+
+          if (!passThreshold(houghHist, x, y)) {
+            continue;
+          }
+
+          // FIXME: Disabling writing to containers temporarily to avoid memory
+          // issues when generating a ttbar sample with very high pile-up
+          continue;
+
+          // Now we need to unpack the hits; there should be multiple track
+          // candidates if we have multiple hits in a given layer. So the first
+          // thing is to unpack the indices (which is what we need) by layer
+
+          std::vector<std::vector<std::vector<Index>>> hitIndicesAll(
+              m_cfg.nLayers);
+          std::vector<std::size_t> nHitsPerLayer(m_cfg.nLayers);
+          for (auto measurementIndex : houghHist.hitIds(y, x)) {
+            HoughMeasurementStruct* meas =
+                houghMeasurementStructs[measurementIndex].get();
+            hitIndicesAll[meas->layer].push_back(meas->indices);
+            nHitsPerLayer[meas->layer]++;
+          }
+
+          std::vector<std::vector<int>> combs = getComboIndices(nHitsPerLayer);
+
+          // Loop over all combinations.
+          for (auto [icomb, hit_indices] : Acts::enumerate(combs)) {
+            ProtoTrack protoTrack;
+            for (unsigned layer = 0; layer < m_cfg.nLayers; layer++) {
+              if (hit_indices[layer] >= 0) {
+                for (auto index : hitIndicesAll[layer][hit_indices[layer]]) {
+                  protoTrack.push_back(index);
+                }
+              }
+            }
+            protoTracks.push_back(protoTrack);
+          }
         }
       }
     }
@@ -399,12 +421,15 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     //   peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
     // }
 
-    if (m_cfg.writeToSingleFile) {
-      m_writer->writeObj(hough_hist.get());
-      // m_writer->writeObj(peaks_hist.get());
-    } else {
-      m_writer->writeObjThread(hough_hist.get());
-      // m_writer->writeObjThread(peaks_hist.get());
+    {
+      auto writerSample = writeHist_timer.sample();
+      if (m_cfg.writeToSingleFile) {
+        m_writer->writeObj(hough_hist.get());
+        // m_writer->writeObj(peaks_hist.get());
+      } else {
+        m_writer->writeObjThread(hough_hist.get());
+        // m_writer->writeObjThread(peaks_hist.get());
+      }
     }
   }
   ACTS_DEBUG("Created " << protoTracks.size() << " proto track");
@@ -422,7 +447,9 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::finalize() {
 }
 
 void ActsExamples::HoughTransformSeeder::fillHoughHist(
-    ActsExamples::HoughHist& houghHist, int subregion) const {
+    ActsExamples::HoughHist& houghHist, int subregion,
+    Acts::AveragingScopedTimer& timer) const {
+  auto sample = timer.sample();
   houghHist.reset();
 
   for (unsigned int layer : populatedLayers) {

@@ -76,6 +76,7 @@
 #include "Acts/Utilities/Delegate.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
+#include "Acts/Utilities/ScopedTimer.hpp"
 #include "ActsExamples/EventData/Index.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/ProtoTrack.hpp"
@@ -327,7 +328,8 @@ class HoughTransformSeeder final : public IAlgorithm {
 
   ///////////////////////////////////////////////////////////////////////
   // Core functions, the second/ one calls the first one per layer
-  void fillHoughHist(HoughHist& houghHist, int subregion) const;
+  void fillHoughHist(HoughHist& houghHist, int subregion,
+                     Acts::AveragingScopedTimer& timer) const;
 
   ///////////////////////////////////////////////////////////////////////
   // Helpers
