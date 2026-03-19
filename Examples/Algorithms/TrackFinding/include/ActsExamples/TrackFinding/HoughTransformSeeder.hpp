@@ -212,8 +212,8 @@ class HoughTransformSeeder final : public IAlgorithm {
 
     float xMin = -std::numbers::pi;  // minphi
     float xMax = std::numbers::pi;   // maxphi
-    float yMin = -1.;          // min q/pt, -1 GeV
-    float yMax = 1.;           // max q/pt, +1 GeV
+    float yMin = -1. / 0.9;          // min q/pt, -900 MeV
+    float yMax = 1. / 0.9;           // max q/pt, +900 MeV
 
     /// Size of the houghHists. One obvious concern with this being too big is
     /// that it will take up more memory But the bins of the houghHist are
@@ -224,7 +224,7 @@ class HoughTransformSeeder final : public IAlgorithm {
     /// max x for each hit
 
     unsigned houghHistSize_x = 7000;  // i.e. number of bins in phi_track
-    unsigned houghHistSize_y = 216;   // i.e. number of bins in q/pT
+    unsigned houghHistSize_y = 256;   // i.e. number of bins in q/pT
 
     /// For each assumed q/pT (y) we find the appropriate phi (x) bin for a hit.
     /// But if extend = 2 (for example) We then fill in addition 2 bins to the
