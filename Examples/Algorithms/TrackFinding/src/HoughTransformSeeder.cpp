@@ -260,10 +260,13 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   static thread_local ProtoTrackContainer protoTracks;
   protoTracks.clear();
 
+  ActsExamples::HoughHist houghHist(m_cfg.plane);
+
   // loop over our subregions and run the Hough Transform on each
   for (int subregion : m_cfg.subRegions) {
     ACTS_DEBUG("Processing subregion " << subregion);
-    ActsExamples::HoughHist houghHist = createHoughHist(subregion);
+
+    fillHoughHist(houghHist, subregion);
 
     const auto hough_name =
         std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
@@ -418,9 +421,9 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::finalize() {
   return ActsExamples::ProcessCode::SUCCESS;
 }
 
-ActsExamples::HoughHist ActsExamples::HoughTransformSeeder::createHoughHist(
-    int subregion) const {
-  ActsExamples::HoughHist houghHist(m_cfg.plane);
+void ActsExamples::HoughTransformSeeder::fillHoughHist(
+    ActsExamples::HoughHist& houghHist, int subregion) const {
+  houghHist.reset();
 
   for (unsigned int layer : populatedLayers) {
     auto filter_layer_slice =
@@ -464,8 +467,6 @@ ActsExamples::HoughHist ActsExamples::HoughTransformSeeder::createHoughHist(
       }
     }
   }
-
-  return houghHist;
 }
 
 bool ActsExamples::HoughTransformSeeder::passThreshold(

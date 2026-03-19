@@ -327,7 +327,7 @@ class HoughTransformSeeder final : public IAlgorithm {
 
   ///////////////////////////////////////////////////////////////////////
   // Core functions, the second/ one calls the first one per layer
-  HoughHist createHoughHist(int subregion) const;
+  void fillHoughHist(HoughHist& houghHist, int subregion) const;
 
   ///////////////////////////////////////////////////////////////////////
   // Helpers
