@@ -283,16 +283,14 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
 
     ACTS_DEBUG("Processing subregion " << subregion);
 
-    auto hough_hist = [this, &ctx, subregion]() {
-      const auto hough_name =
-          std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
-      const auto hough_title =
-          std::format("event_{:06}_{:02};q/p_{{T}} [1/GeV];#varphi [rad]",
-                      ctx.eventNumber, subregion);
-      return std::make_unique<TH2S>(hough_name.c_str(), hough_title.c_str(),
-                                    m_cfg.houghHistSize_y, m_bins_y.data(),
-                                    m_cfg.houghHistSize_x, m_bins_x.data());
-    }();
+    const auto hough_name =
+        std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
+    const auto hough_title =
+        std::format("event_{:06}_{:02};q/p_{{T}} [1/GeV];#varphi [rad]",
+                    ctx.eventNumber, subregion);
+    auto hough_hist = std::make_unique<TH2S>(
+        hough_name.c_str(), hough_title.c_str(), m_cfg.houghHistSize_y,
+        m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
 
     {
       auto loopSample = loop_timer.sample();
