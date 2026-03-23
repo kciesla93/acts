@@ -403,22 +403,28 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
 
     // FIXME: Disabling for now since it's unused downstream
     // Sliding window
-    // const auto peaks_name =
-    //     std::format("peaks_{:06}_{:02}", ctx.eventNumber, subregion);
-    // const auto peaks_title =
-    //     std::format("peaks_{:06}_{:02};q/p_{{T}} [1/GeV];#varphi [rad]",
-    //                 ctx.eventNumber, subregion);
-    // auto peaks_hist = std::make_unique<TH2S>(
-    //     peaks_name.c_str(), peaks_title.c_str(), m_cfg.houghHistSize_y,
-    //     m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
+    // auto peaks_hist = [this, &ctx, subregion, &houghHist]() {
+    //   Acts::ScopedTimer peakTimer("HoughTransformSeeder::slidingWindowPeaks",
+    //                               *m_logger, Acts::Logging::DEBUG);
+    //   const auto peaks_name =
+    //       std::format("peaks_{:06}_{:02}", ctx.eventNumber, subregion);
+    //   const auto peaks_title =
+    //       std::format("peaks_{:06}_{:02};q/p_{{T}} [1/GeV];#varphi [rad]",
+    //                   ctx.eventNumber, subregion);
+    //   auto peaks_hist = std::make_unique<TH2S>(
+    //       peaks_name.c_str(), peaks_title.c_str(), m_cfg.houghHistSize_y,
+    //       m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
     //
-    // const auto all_peaks = slidingWindowPeaks(m_houghHist,
-    // m_cfg.slidingWindow); ACTS_DEBUG(std::format("Found {} peaks",
-    // all_peaks.size())); for (const auto& peak : all_peaks) {
-    //   ACTS_DEBUG(std::format("peak=({},{}) bin=({},{})", m_bins_y[peak[0]],
-    //                          m_bins_x[peak[1]], peak[0] + 1, peak[1] + 1));
-    //   peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
-    // }
+    //   const auto all_peaks = slidingWindowPeaks(houghHist, m_cfg.slidingWindow);
+    //   ACTS_DEBUG(std::format("Found {} peaks", all_peaks.size()));
+    //   for (const auto& peak : all_peaks) {
+    //     ACTS_DEBUG(std::format("peak=({},{}) bin=({},{})", m_bins_y[peak[0]],
+    //                            m_bins_x[peak[1]], peak[0] + 1, peak[1] + 1));
+    //     peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
+    //   }
+    //
+    //   return peaks_hist;
+    // }();
 
     {
       auto writerSample = writeHist_timer.sample();
