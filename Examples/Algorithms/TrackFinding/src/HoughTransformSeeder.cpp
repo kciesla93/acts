@@ -296,21 +296,22 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
       auto loopSample = loop_timer.sample();
       for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
         for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
-          if (unsigned entries = houghHist.nLayers(y, x); entries > 0) {
+          if (const unsigned entries = houghHist.nLayers(y, x); entries > 0) {
             ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
-            // Flat layers
+            // Saving flat layer number
             hough_hist->SetBinContent(y + 1, x + 1, entries);
 
-            // Bit pattern
-            const std::uint64_t bits = std::accumulate(
-                houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
-                std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
-                  return sum | 0x1 << layer;
-                });
-            // hough_hist->SetBinContent(y + 1, x + 1, bits);
-            ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
-                                     std::bitset<48>(bits).to_string(),
-                                     entries));
+            if (logger().doPrint(Acts::Logging::VERBOSE)) {
+              // Bit pattern
+              const std::uint64_t bits = std::accumulate(
+                  houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
+                  std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
+                    return sum | 0x1 << layer;
+                  });
+              ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
+                                       std::bitset<48>(bits).to_string(),
+                                       entries));
+            }
 
             if (entries < m_cfg.truthHoughThreshold) {
               continue;
