@@ -360,13 +360,13 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
             }
           }
 
-          if (!passThreshold(houghHist, x, y)) {
-            continue;
-          }
-
           // FIXME: Disabling writing to containers temporarily to avoid memory
           // issues when generating a ttbar sample with very high pile-up
           continue;
+
+          if (!passThreshold(houghHist, x, y)) {
+            continue;
+          }
 
           // Now we need to unpack the hits; there should be multiple track
           // candidates if we have multiple hits in a given layer. So the first
