@@ -372,6 +372,8 @@ struct ActsExamples::HoughTransformSeeder::Writer {
   std::uint32_t bin_phi{};
   std::uint64_t truth_hash{};
   std::uint32_t truth_hits{};
+  std::vector<std::uint64_t> truth_hashes{};
+  std::vector<std::uint32_t> truth_counts{};
 
   explicit Writer(bool use_single_file)
       : file_truth(TFile::Open("truth.root", "recreate")) {
@@ -388,6 +390,8 @@ struct ActsExamples::HoughTransformSeeder::Writer {
     tree->Branch("bin_phi", &bin_phi);
     tree->Branch("truth_hash", &truth_hash);
     tree->Branch("truth_hits", &truth_hits);
+    tree->Branch("truth_hashes", &truth_hashes);
+    tree->Branch("truth_counts", &truth_counts);
   }
 
   Writer(const Writer&) = delete;
@@ -395,8 +399,12 @@ struct ActsExamples::HoughTransformSeeder::Writer {
 
   void writeTree(std::uint64_t eventNumber, int sliceId,
                  std::uint32_t qOverPt_bin, std::uint32_t phi_bin,
-                 std::uint64_t particle_hash, std::uint32_t nHits) {
+                 std::uint64_t particle_hash, std::uint32_t nHits,
+                 const std::map<std::uint64_t, std::uint32_t>& all_counts) {
     std::scoped_lock guard(writer_mutex);
+
+    truth_hashes.clear();
+    truth_counts.clear();
 
     event_number = eventNumber;
     slice = sliceId;
@@ -404,6 +412,11 @@ struct ActsExamples::HoughTransformSeeder::Writer {
     bin_phi = phi_bin;
     truth_hash = particle_hash;
     truth_hits = nHits;
+
+    for (const auto& [hash, count] : all_counts) {
+      truth_hashes.push_back(hash);
+      truth_counts.push_back(count);
+    }
 
     tree->Fill();
   }

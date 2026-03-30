@@ -360,7 +360,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
               if (particle != particles.end()) {
                 ACTS_VERBOSE("adding particle=" << hash);
                 m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash,
-                                    count);
+                                    count, counts);
               }
             }
           }
