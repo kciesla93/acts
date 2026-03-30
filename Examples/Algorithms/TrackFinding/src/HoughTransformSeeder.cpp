@@ -257,6 +257,8 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   Acts::AveragingScopedTimer writeHist_timer("HoughTransformSeeder::writer",
                                              *m_logger, Acts::Logging::DEBUG);
 
+  ACTS_VERBOSE("event=" << ctx.eventNumber);
+
   // clear our Hough measurements out from the previous iteration, if at all
   houghMeasurementStructs.clear();
   populatedLayers.clear();
@@ -267,8 +269,14 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   // add ACTS measurements
   addMeasurements(ctx);
 
+  ACTS_VERBOSE("measurements=" << houghMeasurementStructs.size());
+  ACTS_VERBOSE("populatedLayers=" << populatedLayers.size() << ": "
+                                  << to_string(populatedLayers));
+
   const auto& measurementParticleMap = m_inputMeasurementParticlesMap(ctx);
   const auto& particles = m_inputParticles(ctx);
+
+  ACTS_VERBOSE("particles=" << particles.size());
 
   static thread_local ProtoTrackContainer protoTracks;
   protoTracks.clear();
@@ -301,24 +309,24 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
       for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
         for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
           if (const unsigned entries = houghHist.nLayers(y, x); entries > 0) {
-            ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
             // Saving flat layer number
             hough_hist->SetBinContent(y + 1, x + 1, entries);
 
+            if (entries < m_cfg.truthHoughThreshold) {
+              continue;
+            }
+
+            ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
             if (logger().doPrint(Acts::Logging::VERBOSE)) {
-              // Bit pattern
+              // Bit pattern (not used)
               const std::uint64_t bits = std::accumulate(
                   houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
                   std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
-                    return sum | 0x1 << layer;
+                    return sum | 0x1ull << layer;
                   });
               ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
                                        std::bitset<48>(bits).to_string(),
                                        entries));
-            }
-
-            if (entries < m_cfg.truthHoughThreshold) {
-              continue;
             }
 
             // Find truth particle contributing the most
@@ -331,8 +339,19 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
                         ->second.hash());
               }
             }
-            ACTS_VERBOSE(
-                std::format("n_measurements={}", particle_hashes.size()));
+
+            if (logger().doPrint(Acts::Logging::VERBOSE)) {
+              std::vector<std::uint64_t> unique_particle_hashes =
+                  particle_hashes;
+              std::sort(unique_particle_hashes.begin(),
+                        unique_particle_hashes.end());
+              const auto last = std::unique(unique_particle_hashes.begin(),
+                                            unique_particle_hashes.end());
+              unique_particle_hashes.erase(last, unique_particle_hashes.end());
+              ACTS_VERBOSE(std::format("n_measurements={} unique_particles={}",
+                                       particle_hashes.size(),
+                                       unique_particle_hashes.size()));
+            }
 
             std::map<std::uint64_t, std::uint32_t> counts;
             for (std::uint64_t barcode : particle_hashes) {
@@ -362,6 +381,8 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
                 m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash,
                                     count, counts);
               }
+            } else {
+              ACTS_VERBOSE("rejected, no particle contributing in 50% or more");
             }
           }
 
@@ -419,9 +440,9 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     //       peaks_name.c_str(), peaks_title.c_str(), m_cfg.houghHistSize_y,
     //       m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
     //
-    //   const auto all_peaks = slidingWindowPeaks(houghHist, m_cfg.slidingWindow);
-    //   ACTS_DEBUG(std::format("Found {} peaks", all_peaks.size()));
-    //   for (const auto& peak : all_peaks) {
+    //   const auto all_peaks = slidingWindowPeaks(houghHist,
+    //   m_cfg.slidingWindow); ACTS_DEBUG(std::format("Found {} peaks",
+    //   all_peaks.size())); for (const auto& peak : all_peaks) {
     //     ACTS_DEBUG(std::format("peak=({},{}) bin=({},{})", m_bins_y[peak[0]],
     //                            m_bins_x[peak[1]], peak[0] + 1, peak[1] + 1));
     //     peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
