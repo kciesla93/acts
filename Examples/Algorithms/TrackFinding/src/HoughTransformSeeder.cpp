@@ -49,6 +49,10 @@ static inline unsigned geoIdToLayerNumber(
     const Acts::GeometryIdentifier& geoId);
 template <typename T>
 static inline std::string to_string(std::vector<T> v);
+template <typename T>
+static inline std::string to_string(std::unordered_set<T> v);
+template <typename T>
+static inline std::string to_string(std::span<T> v);
 
 thread_local std::vector<std::shared_ptr<ActsExamples::HoughMeasurementStruct>>
     houghMeasurementStructs;
@@ -617,6 +621,29 @@ static inline unsigned geoIdToLayerNumber(
 
 template <typename T>
 static inline std::string to_string(std::vector<T> v) {
+  std::ostringstream oss;
+  oss << "[";
+  if (!v.empty()) {
+    std::copy(v.begin(), v.end() - 1, std::ostream_iterator<T>(oss, ", "));
+    oss << v.back();
+  }
+  oss << "]";
+  return oss.str();
+}
+
+template <typename T>
+static inline std::string to_string(std::unordered_set<T> v) {
+  std::ostringstream oss;
+  oss << "{";
+  if (!v.empty()) {
+    std::copy(v.begin(), v.end(), std::ostream_iterator<T>(oss, ", "));
+  }
+  oss << "}";
+  return oss.str();
+}
+
+template <typename T>
+static inline std::string to_string(std::span<T> v) {
   std::ostringstream oss;
   oss << "[";
   if (!v.empty()) {
