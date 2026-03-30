@@ -100,7 +100,7 @@ ActsExamples::HoughTransformSeeder::HoughTransformSeeder(
   m_outputProtoTracks.initialize(m_cfg.outputProtoTracks);
   m_inputMeasurements.initialize(m_cfg.inputMeasurements);
   m_inputMeasurementParticlesMap.initialize("measurement_particles_map");
-  m_inputParticles.initialize("particles_digitized_selected");
+  m_inputParticles.initialize("particles_simulated");
 
   if (!m_cfg.trackingGeometry) {
     throw std::invalid_argument(
