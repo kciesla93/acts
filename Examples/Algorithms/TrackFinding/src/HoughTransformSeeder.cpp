@@ -302,82 +302,83 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       auto loopSample = loop_timer.sample();
       for (unsigned y = 0; y < m_cfg.houghHistSize_y; y++) {
         for (unsigned x = 0; x < m_cfg.houghHistSize_x; x++) {
-          if (const unsigned entries = houghHist.nLayers(y, x); entries > 0) {
-            // Saving flat layer number
-            hough_hist->SetBinContent(y + 1, x + 1, entries);
+          const unsigned entries = houghHist.nLayers(y, x);
+          if (entries == 0) {
+            continue;
+          }
 
-            if (entries < m_cfg.truthHoughThreshold) {
-              continue;
+          // Saving flat layer number
+          hough_hist->SetBinContent(y + 1, x + 1, entries);
+
+          if (entries < m_cfg.truthHoughThreshold) {
+            continue;
+          }
+
+          ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
+          if (logger().doPrint(Acts::Logging::VERBOSE)) {
+            // Bit pattern (not used)
+            const std::uint64_t bits = std::accumulate(
+                houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
+                std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
+                  return sum | 0x1ull << layer;
+                });
+            ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
+                                     std::bitset<48>(bits).to_string(),
+                                     entries));
+          }
+
+          // Find truth particle contributing the most
+          std::vector<std::uint64_t> particle_hashes;
+          for (const HoughMeasurement index : houghHist.hitIds(y, x)) {
+            for (const Index measurement_index :
+                 houghMeasurementStructs[index]->indices) {
+              particle_hashes.push_back(
+                  measurementParticleMap.find(measurement_index)
+                      ->second.hash());
             }
+          }
 
-            ACTS_VERBOSE(std::format("bin (q/pT, phi) = ({}, {})", y, x));
-            if (logger().doPrint(Acts::Logging::VERBOSE)) {
-              // Bit pattern (not used)
-              const std::uint64_t bits = std::accumulate(
-                  houghHist.layers(y, x).begin(), houghHist.layers(y, x).end(),
-                  std::uint64_t{}, [](std::uint64_t sum, std::uint64_t layer) {
-                    return sum | 0x1ull << layer;
-                  });
-              ACTS_VERBOSE(std::format("\tbitmask={} n_bits={}",
-                                       std::bitset<48>(bits).to_string(),
-                                       entries));
+          if (logger().doPrint(Acts::Logging::VERBOSE)) {
+            std::vector<std::uint64_t> unique_particle_hashes = particle_hashes;
+            std::sort(unique_particle_hashes.begin(),
+                      unique_particle_hashes.end());
+            const auto last = std::unique(unique_particle_hashes.begin(),
+                                          unique_particle_hashes.end());
+            unique_particle_hashes.erase(last, unique_particle_hashes.end());
+            ACTS_VERBOSE(std::format("n_measurements={} unique_particles={}",
+                                     particle_hashes.size(),
+                                     unique_particle_hashes.size()));
+          }
+
+          std::map<std::uint64_t, std::uint32_t> counts;
+          for (std::uint64_t barcode : particle_hashes) {
+            counts[barcode]++;
+          }
+
+          if (logger().doPrint(Acts::Logging::VERBOSE)) {
+            for (const auto& [hash, count] : counts) {
+              ACTS_VERBOSE(std::format("\t{} -> {}", hash, count));
             }
+          }
 
-            // Find truth particle contributing the most
-            std::vector<std::uint64_t> particle_hashes;
-            for (const HoughMeasurement index : houghHist.hitIds(y, x)) {
-              for (const Index measurement_index :
-                   houghMeasurementStructs[index]->indices) {
-                particle_hashes.push_back(
-                    measurementParticleMap.find(measurement_index)
-                        ->second.hash());
-              }
+          const auto& [hash, count] = *std::max_element(
+              counts.begin(), counts.end(), [](const auto lhs, const auto rhs) {
+                return lhs.second < rhs.second;
+              });
+
+          if (count * 2 >= particle_hashes.size()) {
+            const auto particle =
+                std::find_if(particles.begin(), particles.end(),
+                             [hash](const SimParticle& p) {
+                               return p.particleId().hash() == hash;
+                             });
+            if (particle != particles.end()) {
+              ACTS_VERBOSE("adding particle=" << hash);
+              m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash, count,
+                                  counts);
             }
-
-            if (logger().doPrint(Acts::Logging::VERBOSE)) {
-              std::vector<std::uint64_t> unique_particle_hashes =
-                  particle_hashes;
-              std::sort(unique_particle_hashes.begin(),
-                        unique_particle_hashes.end());
-              const auto last = std::unique(unique_particle_hashes.begin(),
-                                            unique_particle_hashes.end());
-              unique_particle_hashes.erase(last, unique_particle_hashes.end());
-              ACTS_VERBOSE(std::format("n_measurements={} unique_particles={}",
-                                       particle_hashes.size(),
-                                       unique_particle_hashes.size()));
-            }
-
-            std::map<std::uint64_t, std::uint32_t> counts;
-            for (std::uint64_t barcode : particle_hashes) {
-              counts[barcode]++;
-            }
-
-            if (logger().doPrint(Acts::Logging::VERBOSE)) {
-              for (const auto& [hash, count] : counts) {
-                ACTS_VERBOSE(std::format("\t{} -> {}", hash, count));
-              }
-            }
-
-            const auto& [hash, count] =
-                *std::max_element(counts.begin(), counts.end(),
-                                  [](const auto lhs, const auto rhs) {
-                                    return lhs.second < rhs.second;
-                                  });
-
-            if (count * 2 >= particle_hashes.size()) {
-              const auto particle =
-                  std::find_if(particles.begin(), particles.end(),
-                               [hash](const SimParticle& p) {
-                                 return p.particleId().hash() == hash;
-                               });
-              if (particle != particles.end()) {
-                ACTS_VERBOSE("adding particle=" << hash);
-                m_writer->writeTree(ctx.eventNumber, subregion, y, x, hash,
-                                    count, counts);
-              }
-            } else {
-              ACTS_VERBOSE("rejected, no particle contributing in 50% or more");
-            }
+          } else {
+            ACTS_VERBOSE("rejected, no particle contributing in 50% or more");
           }
 
           // FIXME: Disabling writing to containers temporarily to avoid memory
