@@ -62,9 +62,9 @@ thread_local std::unordered_set<unsigned> populatedLayers;
 
 HoughTransformSeeder::HoughTransformSeeder(
     const Config& cfg, std::unique_ptr<const Acts::Logger> logger)
-    : IAlgorithm("HoughTransformSeeder", std::move(logger)), m_cfg(cfg),
+    : IAlgorithm("HoughTransformSeeder", std::move(logger)),
+      m_cfg(cfg),
       m_writer(std::make_unique<Writer>(m_cfg.writeToSingleFile)) {
-{
   // require space points or input measurements (or both), but at least one kind
   // of input
   if (m_cfg.inputMeasurements.empty() && m_cfg.inputSpacePoints.empty()) {
@@ -206,9 +206,8 @@ HoughTransformSeeder::HoughTransformSeeder(
   }
 
   m_cfg.fieldCorrector
-      .connect<&ActsExamples::DefaultHoughFunctions::fieldCorrectionDefault>();
-  m_cfg.layerIDFinder
-      .connect<&ActsExamples::DefaultHoughFunctions::findLayerIDDefault>();
+      .connect<&DefaultHoughFunctions::fieldCorrectionDefault>();
+  m_cfg.layerIDFinder.connect<&DefaultHoughFunctions::findLayerIDDefault>();
 
   auto slicerNone = [](const std::shared_ptr<HoughMeasurementStruct>&,
                        int slice) -> ResultBool {
@@ -226,26 +225,25 @@ HoughTransformSeeder::HoughTransformSeeder(
   };
 
   switch (m_cfg.slicing) {
-    case ActsExamples::Slicing::Wedges:
+    case Slicing::Wedges:
       m_cfg.sliceTester.connect<slicerWedges>();
       break;
-    case ActsExamples::Slicing::None:
+    case Slicing::None:
       m_cfg.sliceTester.connect<slicerNone>();
     default:
       break;
   }
 }
 
-ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
-    const AlgorithmContext& ctx) const {
-  Acts::ScopedTimer executeTimer("HoughTransformSeeder::execute", *m_logger,
+ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
+  Acts::ScopedTimer executeTimer("HoughTransformSeeder::execute", logger(),
                                  Acts::Logging::DEBUG);
   Acts::AveragingScopedTimer loop_timer("HoughTransformSeeder::execute::loop",
-                                        *m_logger, Acts::Logging::DEBUG);
+                                        logger(), Acts::Logging::DEBUG);
   Acts::AveragingScopedTimer houghHist_timer(
-      "HoughTransformSeeder::fillHoughHist", *m_logger, Acts::Logging::DEBUG);
+      "HoughTransformSeeder::fillHoughHist", logger(), Acts::Logging::DEBUG);
   Acts::AveragingScopedTimer writeHist_timer("HoughTransformSeeder::writer",
-                                             *m_logger, Acts::Logging::DEBUG);
+                                             logger(), Acts::Logging::DEBUG);
 
   ACTS_VERBOSE("event=" << ctx.eventNumber);
 
@@ -271,12 +269,12 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   static thread_local ProtoTrackContainer protoTracks;
   protoTracks.clear();
 
-  // ActsExamples::HoughHist houghHist(m_cfg.plane);
-  ActsExamples::HoughHist houghHist = [this]() {
+  // HoughHist houghHist(m_cfg.plane);
+  HoughHist houghHist = [this]() {
     Acts::ScopedTimer createHoughHistTimer(
-        "HoughTransformSeeder::createHoughHist", *m_logger,
+        "HoughTransformSeeder::createHoughHist", logger(),
         Acts::Logging::DEBUG);
-    return ActsExamples::HoughHist(m_cfg.plane);
+    return HoughHist(m_cfg.plane);
   }();
 
   // loop over our subregions and run the Hough Transform on each
@@ -420,7 +418,7 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
     // Sliding window
     // auto peaks_hist = [this, &ctx, subregion, &houghHist]() {
     //   Acts::ScopedTimer peakTimer("HoughTransformSeeder::slidingWindowPeaks",
-    //                               *m_logger, Acts::Logging::DEBUG);
+    //                               logger(), Acts::Logging::DEBUG);
     //   const auto peaks_name =
     //       std::format("peaks_{:06}_{:02}", ctx.eventNumber, subregion);
     //   const auto peaks_title =
@@ -460,14 +458,14 @@ ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::execute(
   return ProcessCode::SUCCESS;
 }
 
-ActsExamples::ProcessCode ActsExamples::HoughTransformSeeder::finalize() {
+ProcessCode HoughTransformSeeder::finalize() {
   m_writer->close();
 
-  return ActsExamples::ProcessCode::SUCCESS;
+  return ProcessCode::SUCCESS;
 }
 
-void ActsExamples::HoughTransformSeeder::fillHoughHist(
-    ActsExamples::HoughHist& houghHist, int subregion,
+void HoughTransformSeeder::fillHoughHist(
+    HoughHist& houghHist, int subregion,
     Acts::AveragingScopedTimer& timer) const {
   auto sample = timer.sample();
   houghHist.reset();
@@ -665,8 +663,7 @@ static inline std::string to_string(std::span<T> v) {
   return oss.str();
 }
 
-double ActsExamples::HoughTransformSeeder::yToX(double y, double r,
-                                                double phi) const {
+double HoughTransformSeeder::yToX(double y, double r, double phi) const {
   double d0 = 0;  // d0 correction TO DO allow for this
   double x = std::asin(0.5 * r * m_bFieldZ * y - d0 / r) + phi;
 
@@ -715,8 +712,7 @@ std::pair<unsigned, unsigned> HoughTransformSeeder::yToXBins(
 
 // We allow variable extension based on the size of m_hitExtend_x. See
 // comments below.
-unsigned ActsExamples::HoughTransformSeeder::getExtension(
-    unsigned y, unsigned layer) const {
+unsigned HoughTransformSeeder::getExtension(unsigned y, unsigned layer) const {
   if (m_cfg.hitExtend_x.size() == m_cfg.nLayers) {
     return m_cfg.hitExtend_x[layer];
   }
@@ -810,56 +806,43 @@ void HoughTransformSeeder::addSpacePoints(const AlgorithmContext& ctx) const {
       }
     }
   }
-  for (const auto& isp : m_inputSpacePoints) {
-    const auto& spContainer = (*isp)(ctx);
-    ACTS_DEBUG("Inserting " << spContainer.size() << " space points from "
-                            << isp->key());
-    for (auto& sp : spContainer) {
-      const Acts::GeometryIdentifier& geoId =
-          sp.sourceLinks().at(0).get<IndexSourceLink>().geometryId();
-      const double r = Acts::fastHypot(sp.x(), sp.y());
-      const double z = sp.z();
-      const float phi = std::atan2(sp.y(), sp.x());
-      const double theta = std::atan2(r, z);
-      const double eta = -std::log(std::tan(theta / 2.));
-      const unsigned hitLayer = geoIdToLayerNumber(geoId);
-      ACTS_DEBUG(std::format("{}: r={} z={} layer={}, geoVol={} geoLayer={}",
-                             r < 200 ? "PIXEL" : "STRIP", r, z, hitLayer,
-                             geoId.volume(), geoId.layer()));
-      std::vector<Index> indices;
-      for (const auto& slink : sp.sourceLinks()) {
-        const auto& islink = slink.get<IndexSourceLink>();
-        indices.push_back(islink.index());
-      }
-
-      populatedLayers.insert(hitLayer);
-
-      auto meas =
-          std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
-              hitLayer, phi, r, z, eta, indices, HoughHitType::SP));
-      houghMeasurementStructs.push_back(meas);
-      if (firstEvent) {
-        for (int slice : m_cfg.subRegions) {
-          if (m_cfg.sliceTester(meas, slice).value()) {
-            zr[slice].Fill(z, r);
-            if ((r < 200 && std::fabs(z) < 600) ||
-                (r > 200 && std::fabs(z) < 1200)) {
-              xy[slice].Fill(sp.x(), sp.y());
-            }
-          }
-        }
-      }
-    }
+  ACTS_DEBUG("Inserting " << spacePoints.size() << " space points from "
+                          << m_inputSpacePoints.key());
+  for (ConstSpacePointProxy sp : spacePoints) {
+    const Acts::GeometryIdentifier& geoId =
+        sp.sourceLinks().front().get<IndexSourceLink>().geometryId();
+    const double r = Acts::fastHypot(sp.x(), sp.y());
+    const double z = sp.z();
+    const float phi = std::atan2(sp.y(), sp.x());
+    const double theta = std::atan2(r, z);
+    const double eta = -std::log(std::tan(theta / 2.));
+    const unsigned hitLayer = geoIdToLayerNumber(geoId);
+    ACTS_DEBUG(std::format("{}: r={} z={} layer={}, geoVol={} geoLayer={}",
+                           r < 200 ? "PIXEL" : "STRIP", r, z, hitLayer,
+                           geoId.volume(), geoId.layer()));
     std::vector<Index> indices;
     for (const auto& slink : sp.sourceLinks()) {
       const auto& islink = slink.get<IndexSourceLink>();
       indices.push_back(islink.index());
     }
 
+    populatedLayers.insert(hitLayer);
+
     auto meas =
         std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
-            hitlayer.value(), phi, r, z, indices, HoughHitType::SP));
+            hitLayer, phi, r, z, eta, indices, HoughHitType::SP));
     houghMeasurementStructs.push_back(meas);
+    if (firstEvent) {
+      for (int slice : m_cfg.subRegions) {
+        if (m_cfg.sliceTester(meas, slice).value()) {
+          zr[slice].Fill(z, r);
+          if ((r < 200 && std::fabs(z) < 600) ||
+              (r > 200 && std::fabs(z) < 1200)) {
+            xy[slice].Fill(sp.x(), sp.y());
+          }
+        }
+      }
+    }
   }
   if (firstEvent) {
     file->Write();

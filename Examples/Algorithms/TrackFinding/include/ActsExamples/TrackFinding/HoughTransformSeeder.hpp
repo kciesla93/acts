@@ -71,9 +71,9 @@
 #pragma once
 
 #include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "Acts/Seeding/HoughTransformUtils.hpp"
-#include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Utilities/Delegate.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
@@ -82,6 +82,7 @@
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/ProtoTrack.hpp"
 #include "ActsExamples/EventData/SpacePoint.hpp"
+#include "ActsExamples/EventData/TruthMatching.hpp"
 #include "ActsExamples/Framework/DataHandle.hpp"
 #include "ActsExamples/Framework/IAlgorithm.hpp"
 #include "ActsExamples/Framework/ProcessCode.hpp"
@@ -155,9 +156,10 @@ class HoughTransformSeeder final : public IAlgorithm {
   using LayerIDFinder = Acts::Delegate<ResultUnsigned(
       double)>;  // (double r) this function will map the r of a measurement to
                  // a layer.
-  using SliceTester = Acts::Delegate<ResultBool(
-      double, unsigned, int)>;  // (double z,unsigned layer, int slice) returns
-                                // true if measurement in slice
+  using SliceTester =
+      Acts::Delegate<ResultBool(const std::shared_ptr<HoughMeasurementStruct>&,
+                                int)>;  // (double z,unsigned layer, int slice)
+                                        // returns true if measurement in slice
 
   struct Config {
     /// Input space point collections.
