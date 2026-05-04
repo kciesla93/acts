@@ -426,7 +426,7 @@ def addSeeding(
             )
         elif seedingAlgorithm == SeedingAlgorithm.HoughTransform:
             logger.info("Using Hough Transform seeding")
-            houghTransformConfig.inputSpacePoints = [spacePoints]
+            houghTransformConfig.inputSpacePoints = spacePoints
             houghTransformConfig.inputMeasurements = "measurements"
             houghTransformConfig.outputProtoTracks = "protoTracks"
             houghTransformConfig.outputSeeds = "seeds"

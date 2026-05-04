@@ -21,7 +21,7 @@ target_include_directories(
 
 target_link_libraries(
     ActsExamplesTrackFinding
-    PUBLIC Acts::ExamplesMagneticField
+    PUBLIC ROOT::Tree Acts::ExamplesMagneticField
 )
 
 acts_compile_headers(ExamplesTrackFinding GLOB "include/**/*.hpp")
