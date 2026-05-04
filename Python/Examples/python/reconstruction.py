@@ -507,8 +507,6 @@ def addSeeding(
         else:
             logger.fatal("unknown seedingAlgorithm {}", seedingAlgorithm)
 
-        return
-
         parEstimateAlg = acts.examples.TrackParamsEstimationAlgorithm(
             level=logLevel,
             inputSeeds=seeds,

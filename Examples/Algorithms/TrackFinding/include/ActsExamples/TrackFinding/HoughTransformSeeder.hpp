@@ -81,6 +81,7 @@
 #include "ActsExamples/EventData/Index.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/ProtoTrack.hpp"
+#include "ActsExamples/EventData/Seed.hpp"
 #include "ActsExamples/EventData/SpacePoint.hpp"
 #include "ActsExamples/EventData/TruthMatching.hpp"
 #include "ActsExamples/Framework/DataHandle.hpp"
@@ -300,6 +301,8 @@ class HoughTransformSeeder final : public IAlgorithm {
 
   WriteDataHandle<ProtoTrackContainer> m_outputProtoTracks{this,
                                                            "OutputProtoTracks"};
+
+  WriteDataHandle<SeedContainer> m_outputSeeds{this, "OutputSeeds"};
 
   ////////////////////////////////////////////////////////////////////////
   /// Convenience

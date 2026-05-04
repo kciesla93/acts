@@ -85,7 +85,7 @@ HoughTransformSeeder::HoughTransformSeeder(
   m_inputMeasurements.maybeInitialize(m_cfg.inputMeasurements);
   m_inputSpacePoints.maybeInitialize(m_cfg.inputSpacePoints);
   m_outputProtoTracks.initialize(m_cfg.outputProtoTracks);
-  m_inputMeasurements.initialize(m_cfg.inputMeasurements);
+  m_outputSeeds.initialize(m_cfg.outputSeeds);
   m_inputMeasurementParticlesMap.initialize("measurement_particles_map");
   m_inputParticles.initialize("particles_simulated");
 
@@ -269,6 +269,12 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
   static thread_local ProtoTrackContainer protoTracks;
   protoTracks.clear();
 
+  static thread_local Acts::SeedContainer2 seeds;
+  seeds.clear();
+
+  const SpacePointContainer& spacePoints = m_inputSpacePoints(ctx);
+  seeds.assignSpacePointContainer(spacePoints);
+
   // HoughHist houghHist(m_cfg.plane);
   HoughHist houghHist = [this]() {
     Acts::ScopedTimer createHoughHistTimer(
@@ -451,8 +457,11 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     }
   }
   ACTS_DEBUG("Created " << protoTracks.size() << " proto track");
+  ACTS_DEBUG("Created " << seeds.size() << " seeds");
 
   m_outputProtoTracks(ctx, ProtoTrackContainer{protoTracks});
+  m_outputSeeds(ctx, std::move(seeds));
+
   // clear the vector
   houghMeasurementStructs.clear();
   return ProcessCode::SUCCESS;
