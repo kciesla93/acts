@@ -88,6 +88,16 @@ class VectorMultiTrajectoryBase {
     hist_t hist;
 
     void toStream(std::ostream& os, std::size_t n = 1);
+
+    // This is necessary to make the move constructor and assignment operator
+    // noexcept
+    Statistics() noexcept = default;
+    explicit Statistics(const hist_t& h) noexcept : hist(h) {}
+    explicit Statistics(hist_t&& h) noexcept : hist(std::move(h)) {}
+    Statistics(const Statistics& other) = default;
+    Statistics(Statistics&& other) noexcept = default;
+    Statistics& operator=(const Statistics& other) = default;
+    Statistics& operator=(Statistics&& other) noexcept = default;
   };
 
   template <typename T>
@@ -170,7 +180,7 @@ class VectorMultiTrajectoryBase {
       }
     }
 
-    return Statistics{h};
+    return Statistics(std::move(h));
   }
 
  protected:
@@ -523,11 +533,11 @@ class VectorMultiTrajectory final
     m_index[istate].measdim = measdim;
 
     double* measPtr = &m_meas[m_measOffset[istate]];
-    Eigen::Map<ActsVector<measdim>> valMap(measPtr);
+    Eigen::Map<Vector<measdim>> valMap(measPtr);
     valMap = val;
 
     double* covPtr = &m_measCov[m_measCovOffset[istate]];
-    Eigen::Map<ActsSquareMatrix<measdim>> covMap(covPtr);
+    Eigen::Map<SquareMatrix<measdim>> covMap(covPtr);
     covMap = cov;
   }
 

@@ -10,12 +10,12 @@
 
 #include "ActsAlignment/Kernel/Alignment.hpp"
 
-#include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
 #include "Acts/EventData/VectorTrackContainer.hpp"
 #include "Acts/TrackFitting/detail/KalmanGlobalCovariance.hpp"
 #include "Acts/Utilities/detail/EigenCompat.hpp"
 #include "ActsAlignment/Kernel/AlignmentError.hpp"
+#include "ActsAlignment/Kernel/detail/AlignmentEngine.hpp"
 
 #include <queue>
 
@@ -77,12 +77,6 @@ void ActsAlignment::Alignment<fitter_t>::calculateAlignmentParameters(
   // The total alignment degree of freedom
   alignResult.alignmentDof =
       alignResult.idxedAlignSurfaces.size() * Acts::eAlignmentSize;
-  // Initialize derivative of chi2 w.r.t. alignment parameters for all tracks
-  Acts::ActsDynamicVector sumChi2Derivative =
-      Acts::ActsDynamicVector::Zero(alignResult.alignmentDof);
-  Acts::ActsDynamicMatrix sumChi2SecondDerivative =
-      Acts::ActsDynamicMatrix::Zero(alignResult.alignmentDof,
-                                    alignResult.alignmentDof);
   // Copy the fit options
   fit_options_t fitOptionsWithRefSurface = fitOptions;
   // Calculate contribution to chi2 derivatives from all input trajectories
@@ -90,7 +84,7 @@ void ActsAlignment::Alignment<fitter_t>::calculateAlignmentParameters(
   alignResult.chi2 = 0;
   alignResult.measurementDim = 0;
   alignResult.numTracks = trajectoryCollection.size();
-  double sumChi2ONdf = 0;
+  std::vector<detail::TrackAlignmentState> alignmentStates;
   for (unsigned int iTraj = 0; iTraj < trajectoryCollection.size(); iTraj++) {
     const auto& sourceLinks = trajectoryCollection.at(iTraj);
     const auto& sParameters = startParametersCollection.at(iTraj);
@@ -106,6 +100,28 @@ void ActsAlignment::Alignment<fitter_t>::calculateAlignmentParameters(
       continue;
     }
     const auto& alignState = evaluateRes.value();
+    alignmentStates.push_back(alignState);
+  }
+  return calculateAlignmentParameters(alignmentStates, alignResult);
+}
+
+template <typename fitter_t>
+void ActsAlignment::Alignment<fitter_t>::calculateAlignmentParameters(
+    const std::vector<detail::TrackAlignmentState>& trackAlignmentStates,
+    AlignmentResult& alignResult) const {
+  // The total alignment degree of freedom
+  alignResult.alignmentDof =
+      alignResult.idxedAlignSurfaces.size() * Acts::eAlignmentSize;
+  // Initialize derivative of chi2 w.r.t. alignment parameters for all tracks
+  Acts::DynamicVector sumChi2Derivative =
+      Acts::DynamicVector::Zero(alignResult.alignmentDof);
+  Acts::DynamicMatrix sumChi2SecondDerivative = Acts::DynamicMatrix::Zero(
+      alignResult.alignmentDof, alignResult.alignmentDof);
+  alignResult.chi2 = 0;
+  alignResult.measurementDim = 0;
+  alignResult.numTracks = trackAlignmentStates.size();
+  double sumChi2ONdf = 0;
+  for (const auto& alignState : trackAlignmentStates) {
     for (const auto& [rowSurface, rows] : alignState.alignedSurfaces) {
       const auto& [dstRow, srcRow] = rows;
       // Fill the results into full chi2 derivative matrix
@@ -132,21 +148,19 @@ void ActsAlignment::Alignment<fitter_t>::calculateAlignmentParameters(
 
   // Get the inverse of chi2 second derivative matrix (we need this to
   // calculate the covariance of the alignment parameters)
-  // @Todo: use more stable method for solving the inverse
+  // @TODO: use more stable method for solving the inverse
   std::size_t alignDof = alignResult.alignmentDof;
-  Acts::ActsDynamicMatrix sumChi2SecondDerivativeInverse =
-      Acts::ActsDynamicMatrix::Zero(alignDof, alignDof);
+  Acts::DynamicMatrix sumChi2SecondDerivativeInverse =
+      Acts::DynamicMatrix::Zero(alignDof, alignDof);
   sumChi2SecondDerivativeInverse = sumChi2SecondDerivative.inverse();
   if (sumChi2SecondDerivativeInverse.hasNaN()) {
     ACTS_DEBUG("Chi2 second derivative inverse has NaN");
-    // return AlignmentError::AlignmentParametersUpdateFailure;
   }
 
   // Initialize the alignment results
-  alignResult.deltaAlignmentParameters =
-      Acts::ActsDynamicVector::Zero(alignDof);
+  alignResult.deltaAlignmentParameters = Acts::DynamicVector::Zero(alignDof);
   alignResult.alignmentCovariance =
-      Acts::ActsDynamicMatrix::Zero(alignDof, alignDof);
+      Acts::DynamicMatrix::Zero(alignDof, alignDof);
   // Solve the linear equation to get alignment parameters change
   alignResult.deltaAlignmentParameters =
       -sumChi2SecondDerivative.fullPivLu().solve(sumChi2Derivative);
@@ -166,7 +180,8 @@ Acts::Result<void>
 ActsAlignment::Alignment<fitter_t>::updateAlignmentParameters(
     const Acts::GeometryContext& gctx,
     const std::vector<Acts::SurfacePlacementBase*>& alignedDetElements,
-    const ActsAlignment::AlignedTransformUpdater& alignedTransformUpdater,
+    const ActsAlignment::AlignedTransformUpdaterConcept auto&
+        alignedTransformUpdater,
     ActsAlignment::AlignmentResult& alignResult) const {
   // Update the aligned transform
   Acts::AlignmentVector deltaAlignmentParam = Acts::AlignmentVector::Zero();

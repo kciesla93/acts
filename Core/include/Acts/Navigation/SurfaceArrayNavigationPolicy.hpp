@@ -42,13 +42,18 @@ class SurfaceArrayNavigationPolicy : public INavigationPolicy {
                                         const TrackingVolume& volume,
                                         const Logger& logger, Config config);
 
+  /// Destructor
+  ~SurfaceArrayNavigationPolicy() override;
+
   /// Update the navigation state from the surface array
   /// @param gctx The geometry context
   /// @param args The navigation arguments
+  /// @param state The navigation policy state
   /// @param stream The navigation stream to update
   /// @param logger The logger
   void initializeCandidates(const GeometryContext& gctx,
                             const NavigationArguments& args,
+                            NavigationPolicyState& state,
                             AppendOnlyNavigationStream& stream,
                             const Logger& logger) const;
 
@@ -80,7 +85,13 @@ class SurfaceArrayNavigationPolicy : public INavigationPolicy {
   /// @return The surface array
   const SurfaceArray& surfaceArray() const;
 
+  /// Constant access to config
+  /// @return config
+  const Config& config() const;
+
  private:
+  Config m_cfg;
+
   std::unique_ptr<SurfaceArray> m_surfaceArray{};
   const TrackingVolume& m_volume;
 };
