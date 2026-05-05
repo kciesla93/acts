@@ -275,7 +275,6 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
   const SpacePointContainer& spacePoints = m_inputSpacePoints(ctx);
   seeds.assignSpacePointContainer(spacePoints);
 
-  // HoughHist houghHist(m_cfg.plane);
   HoughHist houghHist = [this]() {
     Acts::ScopedTimer createHoughHistTimer(
         "HoughTransformSeeder::createHoughHist", logger(),
@@ -283,14 +282,49 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     return HoughHist(m_cfg.plane);
   }();
 
-  const auto addSeed = [](std::span<const unsigned long> measurements) {
-    auto seed = seeds.createSeed();
-    std::vector<Acts::SpacePointIndex2> spIndices;
-    for (const HoughMeasurement index : measurements) {
+  const auto addSeed = [this](std::span<const unsigned long> allIndices) {
+    std::vector<const HoughMeasurementStruct*> spMeasurements;
+    for (const HoughMeasurement index : allIndices) {
       if (houghMeasurementStructs[index]->type == HoughHitType::SP) {
-        spIndices.push_back(houghMeasurementStructs[index]->sp_index);
+        spMeasurements.push_back(houghMeasurementStructs[index].get());
       }
     }
+
+    std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
+                                         const HoughMeasurementStruct* rhs) {
+      return lhs->radius < rhs->radius;
+    });
+
+    auto nonUnique = std::ranges::unique(spMeasurements,
+                                         [](const HoughMeasurementStruct* lhs,
+                                            const HoughMeasurementStruct* rhs) {
+                                           return lhs->layer == rhs->layer;
+                                         });
+    spMeasurements.erase(nonUnique.begin(), nonUnique.end());
+
+    std::vector<Acts::SpacePointIndex2> spIndicesAll;
+    std::ranges::transform(
+        spMeasurements, std::back_inserter(spIndicesAll),
+        [](const HoughMeasurementStruct* meas) { return meas->sp_index; });
+
+    std::vector<Acts::SpacePointIndex2> spIndices;
+    switch (m_cfg.seedTriplet) {
+      case SeedTriplet::Nearest:
+        std::copy(spIndicesAll.begin(), spIndicesAll.begin() + 3,
+                  std::back_inserter(spIndices));
+        break;
+      case SeedTriplet::Farest:
+        std::copy(spIndicesAll.rbegin(), spIndicesAll.rbegin() + 3,
+                  std::back_inserter(spIndices));
+        break;
+      case SeedTriplet::NearestMiddlestFarest:
+        spIndices.push_back(spIndicesAll.front());
+        spIndices.push_back(spIndicesAll[spIndicesAll.size() / 2]);
+        spIndices.push_back(spIndicesAll.back());
+        break;
+    }
+
+    auto seed = seeds.createSeed();
     seed.assignSpacePointIndices(spIndices);
     // seed.vertexZ() = ...;
     // seed.quality() = ...;

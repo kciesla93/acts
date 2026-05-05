@@ -123,6 +123,7 @@ using HoughHist = Acts::HoughTransformUtils::HoughPlane<HoughMeasurement>;
 enum HoughHitType { SP = 0, MEASUREMENT = 1 };
 enum class Binning { EqudistantQoverPt, EqudistantPt, Steps, FinerCentral };
 enum class Slicing { None, Wedges };
+enum class SeedTriplet { Nearest, Farest, NearestMiddlestFarest };
 
 /// The measurements and SP are ugly to use, this is a convenience struct that
 /// contains the needed information
@@ -252,6 +253,7 @@ class HoughTransformSeeder final : public IAlgorithm {
 
     Binning binning = Binning::FinerCentral;
     Slicing slicing = Slicing::Wedges;
+    SeedTriplet seedTriplet = SeedTriplet::Nearest;
 
     bool writeToSingleFile = false;  // Defaults to false for now
   };
