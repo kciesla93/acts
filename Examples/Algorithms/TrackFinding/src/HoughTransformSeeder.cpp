@@ -843,9 +843,11 @@ void HoughTransformSeeder::addSpacePoints(const AlgorithmContext& ctx) const {
     const double theta = std::atan2(r, z);
     const double eta = -std::log(std::tan(theta / 2.));
     const unsigned hitLayer = geoIdToLayerNumber(geoId);
-    ACTS_DEBUG(std::format("{}: r={} z={} layer={}, geoVol={} geoLayer={}",
-                           r < 200 ? "PIXEL" : "STRIP", r, z, hitLayer,
-                           geoId.volume(), geoId.layer()));
+    ACTS_DEBUG(
+        std::format("{}: r={:9.4f} z={:9.4f} layer={:2}, geoVol={:2} "
+                    "geoLayer={:2} index={}",
+                    r < 200 ? "PIXEL" : "STRIP", r, z, hitLayer, geoId.volume(),
+                    geoId.layer(), sp.index()));
     std::vector<Index> indices;
     for (const auto& slink : sp.sourceLinks()) {
       const auto& islink = slink.get<IndexSourceLink>();
@@ -935,9 +937,10 @@ void HoughTransformSeeder::addMeasurements(const AlgorithmContext& ctx) const {
         // we have layer information
         const unsigned hitLayer = geoIdToLayerNumber(surface->geometryId());
         const unsigned volume = surface->geometryId().volume();
-        ACTS_DEBUG(std::format("{}: r={} z={} layer={}, geoVol={} geoLayer={}",
-                               volume < 20 ? "PIXEL" : "STRIP", r, z, hitLayer,
-                               volume, surface->geometryId().layer()));
+        ACTS_DEBUG(std::format(
+            "{}: r={:9.4f} z={:9.4f} layer={:2}, geoVol={:2} geoLayer={:2}",
+            volume < 20 ? "PIXEL" : "STRIP", r, z, hitLayer, volume,
+            surface->geometryId().layer()));
 
         std::vector<Index> index;
         index.push_back(sourceLink.index());
