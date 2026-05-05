@@ -283,6 +283,19 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     return HoughHist(m_cfg.plane);
   }();
 
+  const auto addSeed = [](std::span<const unsigned long> measurements) {
+    auto seed = seeds.createSeed();
+    std::vector<Acts::SpacePointIndex2> spIndices;
+    for (const HoughMeasurement index : measurements) {
+      if (houghMeasurementStructs[index]->type == HoughHitType::SP) {
+        spIndices.push_back(houghMeasurementStructs[index]->sp_index);
+      }
+    }
+    seed.assignSpacePointIndices(spIndices);
+    // seed.vertexZ() = ...;
+    // seed.quality() = ...;
+  };
+
   // loop over our subregions and run the Hough Transform on each
   for (int subregion : m_cfg.subRegions) {
     fillHoughHist(houghHist, subregion, houghHist_timer);
@@ -381,6 +394,8 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
             ACTS_VERBOSE("rejected, no particle contributing in 50% or more");
           }
 
+          addSeed(houghHist.hitIds(y, x));
+
           // FIXME: Disabling writing to containers temporarily to avoid memory
           // issues when generating a ttbar sample with very high pile-up
           continue;
@@ -423,7 +438,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     // FIXME: Disabling for now since it's unused downstream
     // Sliding window
-    // auto peaks_hist = [this, &ctx, subregion, &houghHist]() {
+    // [this, &ctx, subregion, &houghHist, addSeed]() {
     //   Acts::ScopedTimer peakTimer("HoughTransformSeeder::slidingWindowPeaks",
     //                               logger(), Acts::Logging::DEBUG);
     //   const auto peaks_name =
@@ -441,6 +456,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     //     ACTS_DEBUG(std::format("peak=({},{}) bin=({},{})", m_bins_y[peak[0]],
     //                            m_bins_x[peak[1]], peak[0] + 1, peak[1] + 1));
     //     peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
+    //     addSeed(houghHist.hitIds(peak[0], peak[1]));
     //   }
     //
     //   return peaks_hist;
@@ -841,6 +857,7 @@ void HoughTransformSeeder::addSpacePoints(const AlgorithmContext& ctx) const {
     auto meas =
         std::shared_ptr<HoughMeasurementStruct>(new HoughMeasurementStruct(
             hitLayer, phi, r, z, eta, indices, HoughHitType::SP));
+    meas->sp_index = sp.index();
     houghMeasurementStructs.push_back(meas);
     if (firstEvent) {
       for (int slice : m_cfg.subRegions) {

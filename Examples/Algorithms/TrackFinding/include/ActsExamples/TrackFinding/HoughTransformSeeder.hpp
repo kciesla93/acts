@@ -133,6 +133,7 @@ struct HoughMeasurementStruct {
   double z;
   double eta;
   std::vector<Index> indices;
+  std::uint32_t sp_index{};
   HoughHitType type;
   HoughMeasurementStruct(unsigned l, double p, double r, double thez,
                          double theeta, std::vector<Index>& i, HoughHitType t)
