@@ -312,18 +312,25 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     std::vector<Acts::SpacePointIndex2> spIndices;
     switch (m_cfg.seedTriplet) {
-      case SeedTriplet::Nearest:
+      case SeedType::NearTriplet:
         std::copy(spIndicesAll.begin(), spIndicesAll.begin() + 3,
                   std::back_inserter(spIndices));
         break;
-      case SeedTriplet::Farest:
+      case SeedType::FarTriplet:
         std::copy(spIndicesAll.rbegin(), spIndicesAll.rbegin() + 3,
                   std::back_inserter(spIndices));
         break;
-      case SeedTriplet::NearestMiddlestFarest:
+      case SeedType::NearMiddleFarTriplet:
         spIndices.push_back(spIndicesAll.front());
         spIndices.push_back(spIndicesAll[spIndicesAll.size() / 2]);
         spIndices.push_back(spIndicesAll.back());
+        break;
+      case SeedType::NearFarDoublet:
+        spIndices.push_back(spIndicesAll.front());
+        spIndices.push_back(spIndicesAll.back());
+        break;
+      case SeedType::All:
+        std::ranges::copy(spIndicesAll, std::back_inserter(spIndices));
         break;
     }
 
