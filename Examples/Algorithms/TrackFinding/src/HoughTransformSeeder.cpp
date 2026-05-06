@@ -64,7 +64,8 @@ HoughTransformSeeder::HoughTransformSeeder(
     const Config& cfg, std::unique_ptr<const Acts::Logger> logger)
     : IAlgorithm("HoughTransformSeeder", std::move(logger)),
       m_cfg(cfg),
-      m_writer(std::make_unique<Writer>(m_cfg.writeToSingleFile)) {
+      m_writer(std::make_unique<Writer>(m_cfg.writeToSingleFile)),
+      m_reader(std::make_unique<NNReader>("./output.csv")) {
   // require space points or input measurements (or both), but at least one kind
   // of input
   if (m_cfg.inputMeasurements.empty() && m_cfg.inputSpacePoints.empty()) {
@@ -244,6 +245,8 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       "HoughTransformSeeder::fillHoughHist", logger(), Acts::Logging::DEBUG);
   Acts::AveragingScopedTimer writeHist_timer("HoughTransformSeeder::writer",
                                              logger(), Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer peaks_timer("HoughTransformSeeder::peaks",
+                                         logger(), Acts::Logging::DEBUG);
 
   ACTS_VERBOSE("event=" << ctx.eventNumber);
 
@@ -428,7 +431,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
             ACTS_VERBOSE("rejected, no particle contributing in 50% or more");
           }
 
-          addSeed(houghHist.hitIds(y, x));
+          // addSeed(houghHist.hitIds(y, x));
 
           // FIXME: Disabling writing to containers temporarily to avoid memory
           // issues when generating a ttbar sample with very high pile-up
@@ -504,6 +507,17 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       } else {
         m_writer->writeObjThread(hough_hist.get());
         // m_writer->writeObjThread(peaks_hist.get());
+      }
+    }
+
+    {
+      auto peaksSample = peaks_timer.sample();
+      for (const auto& [y, x, nhits] :
+           m_reader->getPeaks(ctx.eventNumber, subregion)) {
+        ACTS_DEBUG(std::format("peak=({}, {}) layers={} vs {}", y, x, nhits,
+                               houghHist.nLayers(y, x)));
+
+        addSeed(houghHist.hitIds(y, x));
       }
     }
   }

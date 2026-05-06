@@ -96,6 +96,8 @@
 #include <utility>
 #include <vector>
 
+#include <ROOT/RCsvDS.hxx>
+#include <ROOT/RDataFrame.hxx>
 #include <TFile.h>
 #include <TH2.h>
 #include <TTree.h>
@@ -348,6 +350,9 @@ class HoughTransformSeeder final : public IAlgorithm {
   struct Writer;
   std::unique_ptr<Writer> m_writer;
 
+  struct NNReader;
+  std::unique_ptr<NNReader> m_reader;
+
   double m_bFieldZ;
 };
 
@@ -437,6 +442,49 @@ struct ActsExamples::HoughTransformSeeder::Writer {
       file_histo->Write();
       file_histo->Close();
     }
+  }
+};
+
+struct ActsExamples::HoughTransformSeeder::NNReader {
+  using Peak = std::tuple<int, int, int>;
+
+  ROOT::RDataFrame df{0};
+  std::mutex reader_mutex;
+
+  std::uint64_t event_number{};
+  std::uint32_t bin_qOverPt{};
+  std::uint32_t bin_phi{};
+
+  explicit NNReader(std::string_view filename) {
+    namespace fs = std::filesystem;
+    const fs::path csv(filename);
+
+    if (fs::exists(csv)) {
+      df = ROOT::RDF::FromCSV(filename.data());
+    }
+  }
+
+  NNReader(const NNReader&) = delete;
+  NNReader operator=(const NNReader&) = delete;
+
+  std::vector<Peak> getPeaks(std::int64_t eventNumber, int slice) {
+    if (df.GetNFiles() == 0) {
+      return {};
+    }
+
+    std::scoped_lock guard(reader_mutex);
+
+    std::vector<Peak> peaks;
+    df.Filter(
+          [eventNumber, slice](Long64_t event_id, Long64_t slice_id) {
+            return event_id == eventNumber && slice_id == slice;
+          },
+          {"event_id", "slice_id"})
+        .Foreach([&peaks](Long64_t y, Long64_t x,
+                          Long64_t nhits) { peaks.emplace_back(y, x, nhits); },
+                 {"pos_qopt", "pos_phi", "n_hits"});
+
+    return peaks;
   }
 };
 
