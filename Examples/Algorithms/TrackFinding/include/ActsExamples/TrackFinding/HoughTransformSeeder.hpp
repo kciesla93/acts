@@ -129,6 +129,7 @@ enum class SeedType {
   All,
   NearTriplet,
   FarTriplet,
+  NearTripletSkipFirst,
   NearMiddleFarTriplet,
   NearFarDoublet
 };

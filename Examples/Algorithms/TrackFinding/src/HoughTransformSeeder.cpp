@@ -315,6 +315,10 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
         std::copy(spMeasurements.rbegin(), spMeasurements.rbegin() + 3,
                   std::back_inserter(spSeedMeasurements));
         break;
+      case SeedType::NearTripletSkipFirst:
+        std::copy(spMeasurements.begin() + 1, spMeasurements.begin() + 4,
+                  std::back_inserter(spSeedMeasurements));
+        break;
       case SeedType::NearMiddleFarTriplet:
         spSeedMeasurements.push_back(spMeasurements.front());
         spSeedMeasurements.push_back(spMeasurements[spMeasurements.size() / 2]);
