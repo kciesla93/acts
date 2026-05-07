@@ -261,7 +261,7 @@ class HoughTransformSeeder final : public IAlgorithm {
 
     static constexpr Binning binning = Binning::FinerCentral;
     static constexpr Slicing slicing = Slicing::Wedges;
-    static constexpr SeedType seedTriplet = SeedType::NearTriplet;
+    static constexpr SeedType seedType = SeedType::NearTriplet;
 
     bool writeToSingleFile = false;  // Defaults to false for now
   };

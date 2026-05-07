@@ -337,8 +337,20 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     auto seed = seeds.createSeed();
     seed.assignSpacePointIndices(spIndices);
-    // seed.vertexZ() = ...;
-    // seed.quality() = ...;
+
+    if (m_cfg.seedType == SeedType::NearTriplet ||
+        m_cfg.seedType == SeedType::FarTriplet ||
+        m_cfg.seedType == SeedType::NearMiddleFarTriplet) {
+      const auto cotThetaEstimate = static_cast<float>(
+          (spSeedMeasurements[2]->z - spSeedMeasurements[0]->z) /
+          (spSeedMeasurements[2]->radius - spSeedMeasurements[0]->radius));
+      const auto z =
+          static_cast<float>(spSeedMeasurements[1]->z -
+                             spSeedMeasurements[1]->radius *
+                             cotThetaEstimate);
+      seed.vertexZ() = z;
+      seed.quality() = 1.0;
+    }
   };
 
   // loop over our subregions and run the Hough Transform on each
