@@ -305,34 +305,35 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                                          });
     spMeasurements.erase(nonUnique.begin(), nonUnique.end());
 
-    std::vector<Acts::SpacePointIndex2> spIndicesAll;
-    std::ranges::transform(
-        spMeasurements, std::back_inserter(spIndicesAll),
-        [](const HoughMeasurementStruct* meas) { return meas->sp_index; });
-
-    std::vector<Acts::SpacePointIndex2> spIndices;
-    switch (m_cfg.seedTriplet) {
+    std::vector<const HoughMeasurementStruct*> spSeedMeasurements;
+    switch (m_cfg.seedType) {
       case SeedType::NearTriplet:
-        std::copy(spIndicesAll.begin(), spIndicesAll.begin() + 3,
-                  std::back_inserter(spIndices));
+        std::copy(spMeasurements.begin(), spMeasurements.begin() + 3,
+                  std::back_inserter(spSeedMeasurements));
         break;
       case SeedType::FarTriplet:
-        std::copy(spIndicesAll.rbegin(), spIndicesAll.rbegin() + 3,
-                  std::back_inserter(spIndices));
+        std::copy(spMeasurements.rbegin(), spMeasurements.rbegin() + 3,
+                  std::back_inserter(spSeedMeasurements));
         break;
       case SeedType::NearMiddleFarTriplet:
-        spIndices.push_back(spIndicesAll.front());
-        spIndices.push_back(spIndicesAll[spIndicesAll.size() / 2]);
-        spIndices.push_back(spIndicesAll.back());
+        spSeedMeasurements.push_back(spMeasurements.front());
+        spSeedMeasurements.push_back(spMeasurements[spMeasurements.size() / 2]);
+        spSeedMeasurements.push_back(spMeasurements.back());
         break;
       case SeedType::NearFarDoublet:
-        spIndices.push_back(spIndicesAll.front());
-        spIndices.push_back(spIndicesAll.back());
+        spSeedMeasurements.push_back(spMeasurements.front());
+        spSeedMeasurements.push_back(spMeasurements.back());
         break;
       case SeedType::All:
-        std::ranges::copy(spIndicesAll, std::back_inserter(spIndices));
+        std::ranges::copy(spMeasurements,
+                          std::back_inserter(spSeedMeasurements));
         break;
     }
+
+    std::vector<Acts::SpacePointIndex2> spIndices;
+    std::ranges::transform(
+        spSeedMeasurements, std::back_inserter(spIndices),
+        [](const HoughMeasurementStruct* meas) { return meas->sp_index; });
 
     auto seed = seeds.createSeed();
     seed.assignSpacePointIndices(spIndices);
