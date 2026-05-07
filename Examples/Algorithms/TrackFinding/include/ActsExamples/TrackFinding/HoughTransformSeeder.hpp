@@ -259,9 +259,9 @@ class HoughTransformSeeder final : public IAlgorithm {
     float truthDzCut = 150;  // [mm]
     float truthPtCut = 1;    // [GeV]
 
-    Binning binning = Binning::FinerCentral;
-    Slicing slicing = Slicing::Wedges;
-    SeedType seedTriplet = SeedType::NearTriplet;
+    static constexpr Binning binning = Binning::FinerCentral;
+    static constexpr Slicing slicing = Slicing::Wedges;
+    static constexpr SeedType seedTriplet = SeedType::NearTriplet;
 
     bool writeToSingleFile = false;  // Defaults to false for now
   };

@@ -1646,8 +1646,6 @@ def addCKFTracks(
         write covaraiance matrices to tracksummary_ckf.root ntuple?
     """
 
-    return
-
     customLogLevel = acts.examples.defaultLogging(s, logLevel)
 
     tslist = (
@@ -2093,7 +2091,6 @@ def addAmbiguityResolution(
     logLevel: Optional[acts.logging.Level] = None,
     prefix: str = "",
 ) -> None:
-    return
 
     from acts.examples import GreedyAmbiguityResolutionAlgorithm
 
@@ -2356,7 +2353,6 @@ def addVertexFitting(
     logLevel : acts.logging.Level, None
         logging level to override setting given in `s`
     """
-    return
 
     from acts.examples import (
         TruthVertexFinder,
