@@ -458,10 +458,6 @@ struct ActsExamples::HoughTransformSeeder::NNReader {
   ROOT::RDataFrame df{0};
   std::mutex reader_mutex;
 
-  std::uint64_t event_number{};
-  std::uint32_t bin_qOverPt{};
-  std::uint32_t bin_phi{};
-
   explicit NNReader(std::string_view filename) {
     namespace fs = std::filesystem;
     const fs::path csv(filename);
