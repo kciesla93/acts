@@ -65,7 +65,11 @@ HoughTransformSeeder::HoughTransformSeeder(
     : IAlgorithm("HoughTransformSeeder", std::move(logger)),
       m_cfg(cfg),
       m_writer(std::make_unique<Writer>(m_cfg.writeToSingleFile)),
-      m_reader(std::make_unique<NNReader>("./output.csv")) {
+      m_reader([this]() {
+        Acts::ScopedTimer executeTimer("HoughTransformSeeder::readCsv",
+                                       this->logger(), Acts::Logging::DEBUG);
+        return std::make_unique<NNReader>("./output.csv");
+      }()) {
   // require space points or input measurements (or both), but at least one kind
   // of input
   if (m_cfg.inputMeasurements.empty() && m_cfg.inputSpacePoints.empty()) {
@@ -350,8 +354,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
           (spSeedMeasurements[2]->radius - spSeedMeasurements[0]->radius));
       const auto z =
           static_cast<float>(spSeedMeasurements[1]->z -
-                             spSeedMeasurements[1]->radius *
-                             cotThetaEstimate);
+                             spSeedMeasurements[1]->radius * cotThetaEstimate);
       seed.vertexZ() = z;
       seed.quality() = 1.0;
     }
@@ -536,10 +539,14 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     {
       auto peaksSample = peaks_timer.sample();
-      for (const auto& [y, x, nhits] :
+      for (const auto& [y, x, nHits] :
            m_reader->getPeaks(ctx.eventNumber, subregion)) {
-        ACTS_DEBUG(std::format("peak=({}, {}) layers={} vs {}", y, x, nhits,
-                               houghHist.nLayers(y, x)));
+        if (nHits != houghHist.nLayers(y, x)) {
+          throw std::runtime_error(
+              std::format("Mismatch in number of layers between read peak and "
+                          "HT! ({}, {}): {} vs {} layers",
+                          y, x, nHits, houghHist.nLayers(y, x)));
+        }
 
         addSeed(houghHist.hitIds(y, x));
       }

@@ -87,6 +87,7 @@
 #include "ActsExamples/Framework/DataHandle.hpp"
 #include "ActsExamples/Framework/IAlgorithm.hpp"
 #include "ActsExamples/Framework/ProcessCode.hpp"
+#include "ActsExamples/Io/Csv/CsvInputOutput.hpp"
 
 #include <cstddef>
 #include <format>
@@ -453,40 +454,47 @@ struct ActsExamples::HoughTransformSeeder::Writer {
 };
 
 struct ActsExamples::HoughTransformSeeder::NNReader {
-  using Peak = std::tuple<int, int, int>;
+  using Event = std::pair<std::uint32_t, std::uint32_t>;
+  using Peak = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>;
 
-  ROOT::RDataFrame df{0};
-  std::mutex reader_mutex;
+  std::vector<std::pair<Event, Peak>> allPeaks;
 
   explicit NNReader(std::string_view filename) {
     namespace fs = std::filesystem;
     const fs::path csv(filename);
 
-    if (fs::exists(csv)) {
-      df = ROOT::RDF::FromCSV(filename.data());
+    if (!fs::exists(csv)) {
+      return;
+    }
+
+    auto reader = ActsExamples::CsvReader(filename.data());
+    std::vector<std::string> columns;
+    while (reader.read(columns)) {
+      if (Acts::rangeContainsValue(columns, "event_id")) {
+        continue;
+      }
+
+      std::vector<std::uint32_t> numbers;
+      std::ranges::transform(columns, std::back_inserter(numbers),
+                             [](const std::string& s) { return std::stoi(s); });
+      allPeaks.push_back(
+          {{numbers[0], numbers[1]}, {numbers[2], numbers[3], numbers[4]}});
     }
   }
 
   NNReader(const NNReader&) = delete;
   NNReader operator=(const NNReader&) = delete;
 
-  std::vector<Peak> getPeaks(std::int64_t eventNumber, int slice) {
-    if (df.GetNFiles() == 0) {
-      return {};
-    }
-
-    std::scoped_lock guard(reader_mutex);
+  std::vector<Peak> getPeaks(std::uint64_t eventNumber, int slice) {
+    const Event event{eventNumber, slice};
 
     std::vector<Peak> peaks;
-    df.Filter(
-          [eventNumber, slice](Long64_t event_id, Long64_t slice_id) {
-            return event_id == eventNumber && slice_id == slice;
-          },
-          {"event_id", "slice_id"})
-        .Foreach([&peaks](Long64_t y, Long64_t x,
-                          Long64_t nhits) { peaks.emplace_back(y, x, nhits); },
-                 {"pos_qopt", "pos_phi", "n_hits"});
-
+    std::ranges::for_each(allPeaks,
+                          [&peaks, event](std::pair<Event, Peak> peak) {
+                            if (peak.first == event) {
+                              peaks.push_back(peak.second);
+                            }
+                          });
     return peaks;
   }
 };
