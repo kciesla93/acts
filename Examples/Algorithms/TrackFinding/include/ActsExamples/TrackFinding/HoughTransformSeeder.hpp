@@ -454,10 +454,10 @@ struct ActsExamples::HoughTransformSeeder::Writer {
 };
 
 struct ActsExamples::HoughTransformSeeder::NNReader {
-  using Event = std::pair<std::uint32_t, std::uint32_t>;
   using Peak = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>;
+  using EventPeak = std::array<std::uint32_t, 5>;
 
-  std::vector<std::pair<Event, Peak>> allPeaks;
+  std::vector<EventPeak> allPeaks;
 
   explicit NNReader(std::string_view filename) {
     namespace fs = std::filesystem;
@@ -474,25 +474,20 @@ struct ActsExamples::HoughTransformSeeder::NNReader {
         continue;
       }
 
-      std::vector<std::uint32_t> numbers;
-      std::ranges::transform(columns, std::back_inserter(numbers),
+      std::ranges::transform(columns, allPeaks.emplace_back().data(),
                              [](const std::string& s) { return std::stoi(s); });
-      allPeaks.push_back(
-          {{numbers[0], numbers[1]}, {numbers[2], numbers[3], numbers[4]}});
     }
   }
 
   NNReader(const NNReader&) = delete;
   NNReader operator=(const NNReader&) = delete;
 
-  std::vector<Peak> getPeaks(std::uint64_t eventNumber, int slice) {
-    const Event event{eventNumber, slice};
-
+  std::vector<Peak> getPeaks(std::uint32_t eventNumber, std::uint32_t slice) {
     std::vector<Peak> peaks;
     std::ranges::for_each(allPeaks,
-                          [&peaks, event](std::pair<Event, Peak> peak) {
-                            if (peak.first == event) {
-                              peaks.push_back(peak.second);
+                          [&peaks, eventNumber, slice](EventPeak peak) {
+                            if (peak[0] == eventNumber && peak[1] == slice) {
+                              peaks.emplace_back(peak[2], peak[3], peak[4]);
                             }
                           });
     return peaks;
