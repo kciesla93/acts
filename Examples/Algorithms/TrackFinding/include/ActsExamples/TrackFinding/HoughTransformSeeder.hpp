@@ -482,7 +482,8 @@ struct ActsExamples::HoughTransformSeeder::NNReader {
   NNReader(const NNReader&) = delete;
   NNReader operator=(const NNReader&) = delete;
 
-  std::vector<Peak> getPeaks(std::uint32_t eventNumber, std::uint32_t slice) {
+  std::vector<Peak> getPeaks(std::uint32_t eventNumber,
+                             std::uint32_t slice) const noexcept {
     std::vector<Peak> peaks;
     std::ranges::for_each(allPeaks,
                           [&peaks, eventNumber, slice](EventPeak peak) {

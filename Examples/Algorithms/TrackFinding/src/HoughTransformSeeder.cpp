@@ -541,7 +541,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       auto peaksSample = peaks_timer.sample();
       for (const auto& [y, x, nHits] :
            m_reader->getPeaks(ctx.eventNumber, subregion)) {
-        if (nHits != houghHist.nLayers(y, x)) {
+        if (nHits != houghHist.nLayers(y, x)) [[unlikely]] {
           throw std::runtime_error(
               std::format("Mismatch in number of layers between read peak and "
                           "HT! ({}, {}): {} vs {} layers",
