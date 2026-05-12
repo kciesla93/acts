@@ -502,7 +502,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     // FIXME: Disabling for now since it's unused downstream
     // Sliding window
-    // [this, &ctx, subregion, &houghHist, addSeed]() {
+    // const auto peak_hist = [this, &ctx, subregion, &houghHist, addSeed]() {
     //   Acts::ScopedTimer peakTimer("HoughTransformSeeder::slidingWindowPeaks",
     //                               logger(), Acts::Logging::DEBUG);
     //   const auto peaks_name =
@@ -515,8 +515,9 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     //       m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
     //
     //   const auto all_peaks = slidingWindowPeaks(houghHist,
-    //   m_cfg.slidingWindow); ACTS_DEBUG(std::format("Found {} peaks",
-    //   all_peaks.size())); for (const auto& peak : all_peaks) {
+    //   m_cfg.slidingWindow);
+    //   ACTS_DEBUG(std::format("Found {} peaks", all_peaks.size()));
+    //   for (const auto& peak : all_peaks) {
     //     ACTS_DEBUG(std::format("peak=({},{}) bin=({},{})", m_bins_y[peak[0]],
     //                            m_bins_x[peak[1]], peak[0] + 1, peak[1] + 1));
     //     peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
