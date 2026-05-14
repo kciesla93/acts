@@ -527,28 +527,6 @@ struct Wedge {
     return lhs < r && r < rhs;
   }
 };
-
-static constexpr std::size_t nWedges = 13;
-static constexpr float etaWidth = 0.23076923076923078;
-static constexpr float zCenter = 0;   // [mm]
-static constexpr float zWidth = 150;  // [mm]
-static constexpr Reg z{zCenter, zWidth};
-
-static std::array<Wedge, nWedges> wedges{{
-    {z, {-2.769230769230769, etaWidth}},
-    {z, {-2.3076923076923075, etaWidth}},
-    {z, {-1.8461538461538458, etaWidth}},
-    {z, {-1.3846153846153846, etaWidth}},
-    {z, {-0.9230769230769229, etaWidth}},
-    {z, {-0.4615384615384613, etaWidth}},
-    {z, {0, etaWidth}},
-    {z, {0.4615384615384616, etaWidth}},
-    {z, {0.9230769230769234, etaWidth}},
-    {z, {1.384615384615385, etaWidth}},
-    {z, {1.8461538461538467, etaWidth}},
-    {z, {2.3076923076923084, etaWidth}},
-    {z, {2.769230769230769, etaWidth}},
-}};
 }  // namespace Wedges
 
 }  // namespace ActsExamples
