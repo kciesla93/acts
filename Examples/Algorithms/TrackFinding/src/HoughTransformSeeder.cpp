@@ -273,7 +273,9 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       "HoughTransformSeeder::fillHoughHist", logger(), Acts::Logging::DEBUG);
   Acts::AveragingScopedTimer writeHist_timer("HoughTransformSeeder::writer",
                                              logger(), Acts::Logging::DEBUG);
-  Acts::AveragingScopedTimer peaks_timer("HoughTransformSeeder::peaks",
+  Acts::AveragingScopedTimer seed_timer("HoughTransformSeeder::addSeed",
+                                        logger(), Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer peaks_timer("HoughTransformSeeder::readPeaks",
                                          logger(), Acts::Logging::DEBUG);
 
   ACTS_VERBOSE("event=" << ctx.eventNumber);
@@ -313,7 +315,9 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     return HoughHist(m_cfg.plane);
   }();
 
-  const auto addSeed = [this](std::span<const unsigned long> allIndices) {
+  const auto addSeed = [this, &seed_timer](
+                           std::span<const unsigned long> allIndices) {
+    auto sample = seed_timer.sample();
     std::vector<const HoughMeasurementStruct*> spMeasurements;
     for (const HoughMeasurement index : allIndices) {
       if (houghMeasurementStructs[index]->type == HoughHitType::SP) {
@@ -332,6 +336,10 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                                            return lhs->layer == rhs->layer;
                                          });
     spMeasurements.erase(nonUnique.begin(), nonUnique.end());
+
+    if (spMeasurements.size() < 3) {
+      return;
+    }
 
     std::vector<const HoughMeasurementStruct*> spSeedMeasurements;
     switch (m_cfg.seedType) {
@@ -527,8 +535,9 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     // FIXME: Disabling for now since it's unused downstream
     // Sliding window
     // const auto peak_hist = [this, &ctx, subregion, &houghHist, addSeed]() {
-    //   Acts::ScopedTimer peakTimer("HoughTransformSeeder::slidingWindowPeaks",
-    //                               logger(), Acts::Logging::DEBUG);
+    //   Acts::ScopedTimer slidingWindow_timer(
+    //       "HoughTransformSeeder::slidingWindowPeaks", logger(),
+    //       Acts::Logging::DEBUG);
     //   const auto peaks_name =
     //       std::format("peaks_{:06}_{:02}", ctx.eventNumber, subregion);
     //   const auto peaks_title =
@@ -539,11 +548,12 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     //       m_bins_y.data(), m_cfg.houghHistSize_x, m_bins_x.data());
     //
     //   const auto all_peaks = slidingWindowPeaks(houghHist,
-    //   m_cfg.slidingWindow);
-    //   ACTS_DEBUG(std::format("Found {} peaks", all_peaks.size()));
-    //   for (const auto& peak : all_peaks) {
-    //     ACTS_DEBUG(std::format("peak=({},{}) bin=({},{})", m_bins_y[peak[0]],
-    //                            m_bins_x[peak[1]], peak[0] + 1, peak[1] + 1));
+    //   m_cfg.slidingWindow); ACTS_DEBUG(std::format("Found {} peaks",
+    //   all_peaks.size())); for (const auto& [i, peak] :
+    //   Acts::enumerate(all_peaks)) {
+    //     ACTS_DEBUG(std::format("{} peak=({},{}) bin=({},{})", i,
+    //                            m_bins_y[peak[0]], m_bins_x[peak[1]],
+    //                            peak[0] + 1, peak[1] + 1));
     //     peaks_hist->Fill(m_bins_y[peak[0]], m_bins_x[peak[1]]);
     //     addSeed(houghHist.hitIds(peak[0], peak[1]));
     //   }
