@@ -315,8 +315,11 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     return HoughHist(m_cfg.plane);
   }();
 
-  const auto addSeed = [this, &seed_timer](
-                           std::span<const unsigned long> allIndices) {
+  int iSeed = 0;
+
+  const auto addSeed = [this, &seed_timer, &iSeed](
+                           std::span<const unsigned long> allIndices,
+                           int slice) {
     auto sample = seed_timer.sample();
     std::vector<const HoughMeasurementStruct*> spMeasurements;
     for (const HoughMeasurement index : allIndices) {
@@ -327,7 +330,9 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
                                          const HoughMeasurementStruct* rhs) {
-      return lhs->radius < rhs->radius;
+      const float dist_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
+      const float dist_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
+      return dist_lhs < dist_rhs;
     });
 
     auto nonUnique = std::ranges::unique(spMeasurements,
@@ -337,7 +342,15 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                                          });
     spMeasurements.erase(nonUnique.begin(), nonUnique.end());
 
+    ACTS_DEBUG(std::format("Spacepoints ({}):", spMeasurements.size()));
+    for (const auto meas : spMeasurements) {
+      ACTS_DEBUG(std::format("\t(r, z, phi, layer, idx) = ({}, {}, {}, {}, {})",
+                             meas->radius, meas->z, meas->phi, meas->layer,
+                             meas->sp_index));
+    }
+
     if (spMeasurements.size() < 3) {
+      ACTS_DEBUG("Skipping...");
       return;
     }
 
@@ -386,6 +399,10 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       seed.vertexZ() = z;
       seed.quality() = 1.0;
     }
+
+    ACTS_DEBUG(std::format("Adding seed #{} (in slice {}) with {} SPs: {}",
+                           iSeed++, slice, spIndices.size(),
+                           to_string(spIndices)));
   };
 
   // loop over our subregions and run the Hough Transform on each
@@ -579,7 +596,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                           y, x, nHits, houghHist.nLayers(y, x)));
         }
 
-        addSeed(houghHist.hitIds(y, x));
+        addSeed(houghHist.hitIds(y, x), subregion);
       }
     }
   }
