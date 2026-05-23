@@ -360,10 +360,6 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
         spSeedMeasurements.push_back(spMeasurements[spMeasurements.size() / 2]);
         spSeedMeasurements.push_back(spMeasurements.back());
         break;
-      case SeedType::NearFarDoublet:
-        spSeedMeasurements.push_back(spMeasurements.front());
-        spSeedMeasurements.push_back(spMeasurements.back());
-        break;
       case SeedType::All:
         std::ranges::copy(spMeasurements,
                           std::back_inserter(spSeedMeasurements));

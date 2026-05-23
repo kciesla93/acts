@@ -132,7 +132,6 @@ enum class SeedType {
   FarTriplet,
   NearTripletSkipFirst,
   NearMiddleFarTriplet,
-  NearFarDoublet
 };
 
 /// The measurements and SP are ugly to use, this is a convenience struct that
