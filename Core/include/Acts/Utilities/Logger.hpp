@@ -511,7 +511,7 @@ class TimedOutputDecorator final : public OutputDecorator {
   /// delegates the flushing of the whole message to its wrapped object.
   void flush(const Level& lvl, const std::string& input) override {
     std::ostringstream os;
-    os << std::left << std::setw(12) << now() << input;
+    os << std::left << std::setw(24) << std::hash<std::thread::id>{}(std::this_thread::get_id()) << input;
     OutputDecorator::flush(lvl, os.str());
   }
 
