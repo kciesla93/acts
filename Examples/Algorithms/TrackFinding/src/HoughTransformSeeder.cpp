@@ -317,17 +317,44 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
   int iSeed = 0;
 
-  const auto addSeed = [this, &seed_timer, &iSeed](
-                           std::span<const unsigned long> allIndices,
-                           int slice) {
+  const auto addSeed = [this, &seed_timer, &iSeed, &measurementParticleMap](
+                           std::span<const unsigned long> allIndices, int slice,
+                           std::size_t particle_hash) {
     auto sample = seed_timer.sample();
-    std::vector<const HoughMeasurementStruct*> spMeasurements;
+    std::vector<const HoughMeasurementStruct*> spMeasurementsAllParticles;
     for (const HoughMeasurement index : allIndices) {
       if (houghMeasurementStructs[index]->type == HoughHitType::SP) {
-        spMeasurements.push_back(houghMeasurementStructs[index].get());
+        spMeasurementsAllParticles.push_back(
+            houghMeasurementStructs[index].get());
       }
     }
 
+    ACTS_DEBUG(std::format("Seed candidate with {} SP(s)",
+                           spMeasurementsAllParticles.size()));
+
+    std::vector<const HoughMeasurementStruct*> spMeasurements;
+    // Remove SP from non-dominant particles
+    auto isFromDominantParticle =
+        [&measurementParticleMap,
+         particle_hash](const HoughMeasurementStruct* measurement) {
+          return std::ranges::any_of(
+              measurement->indices,
+              [&measurementParticleMap, particle_hash](const Index index) {
+                return measurementParticleMap.find(index)->second.hash() ==
+                       particle_hash;
+              });
+        };
+    std::ranges::copy_if(spMeasurementsAllParticles,
+                         std::back_inserter(spMeasurements),
+                         isFromDominantParticle);
+
+    if (spMeasurementsAllParticles.size() != spMeasurements.size()) {
+      ACTS_DEBUG(std::format(
+          "Removed {} SP(s) from non-dominant particles",
+          spMeasurementsAllParticles.size() - spMeasurements.size()));
+    }
+
+    const std::size_t size_before = spMeasurements.size();
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
                                          const HoughMeasurementStruct* rhs) {
       const float dist_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
@@ -341,6 +368,12 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                                            return lhs->layer == rhs->layer;
                                          });
     spMeasurements.erase(nonUnique.begin(), nonUnique.end());
+    const std::size_t size_after = spMeasurements.size();
+
+    if (size_before != size_after) {
+      ACTS_DEBUG(
+          std::format("Removed {} duplicate SP(s)", size_before - size_after));
+    }
 
     ACTS_DEBUG(std::format("Spacepoints ({}):", spMeasurements.size()));
     for (const auto meas : spMeasurements) {
@@ -522,7 +555,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                   yPeak, xPeak, nHits, houghHist.nLayers(yPeak, xPeak)));
             }
 
-            addSeed(houghHist.hitIds(yPeak, xPeak), subregion);
+            addSeed(houghHist.hitIds(yPeak, xPeak), subregion, hash);
           }
 
           // FIXME: Disabling writing to containers temporarily to avoid memory
