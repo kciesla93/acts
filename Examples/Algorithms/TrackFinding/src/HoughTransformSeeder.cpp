@@ -409,6 +409,8 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
   for (int subregion : m_cfg.subRegions) {
     fillHoughHist(houghHist, subregion, houghHist_timer);
 
+    const auto eventPeaks = m_reader->getPeaks(ctx.eventNumber, subregion);
+
     ACTS_DEBUG("Processing subregion " << subregion);
 
     const auto hough_name =
@@ -503,7 +505,25 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
             ACTS_VERBOSE("rejected, no particle contributing in 50% or more");
           }
 
-          // addSeed(houghHist.hitIds(y, x));
+          {  // Adding seeds from file
+            const auto& maybePeak = std::ranges::find_if(
+                eventPeaks, [y, x](const NNReader::Peak peak) {
+                  return y == std::get<0>(peak) && x == std::get<1>(peak);
+                });
+            if (maybePeak == eventPeaks.end()) {
+              continue;
+            }
+
+            const auto& [yPeak, xPeak, nHits] = *maybePeak;
+            if (nHits != houghHist.nLayers(yPeak, xPeak)) [[unlikely]] {
+              throw std::runtime_error(std::format(
+                  "Mismatch in number of layers between read peak and "
+                  "HT! ({}, {}): {} vs {} layers",
+                  yPeak, xPeak, nHits, houghHist.nLayers(yPeak, xPeak)));
+            }
+
+            addSeed(houghHist.hitIds(yPeak, xPeak), subregion);
+          }
 
           // FIXME: Disabling writing to containers temporarily to avoid memory
           // issues when generating a ttbar sample with very high pile-up
@@ -582,21 +602,6 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       } else {
         m_writer->writeObjThread(hough_hist.get());
         // m_writer->writeObjThread(peaks_hist.get());
-      }
-    }
-
-    {
-      auto peaksSample = peaks_timer.sample();
-      for (const auto& [y, x, nHits] :
-           m_reader->getPeaks(ctx.eventNumber, subregion)) {
-        if (nHits != houghHist.nLayers(y, x)) [[unlikely]] {
-          throw std::runtime_error(
-              std::format("Mismatch in number of layers between read peak and "
-                          "HT! ({}, {}): {} vs {} layers",
-                          y, x, nHits, houghHist.nLayers(y, x)));
-        }
-
-        addSeed(houghHist.hitIds(y, x), subregion);
       }
     }
   }
