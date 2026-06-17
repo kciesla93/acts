@@ -405,6 +405,8 @@ if args.reco:
         outputDirRoot=outputDir if args.output_root else None,
         outputDirCsv=outputDir if args.output_csv else None,
         seedingAlgorithm=SeedingAlgorithm.HoughTransform,
+        # seedingAlgorithm=SeedingAlgorithm.GridTriplet,
+        # seedingAlgorithm=SeedingAlgorithm.TruthEstimated,
         # logLevel=acts.logging.DEBUG,
     )
 
@@ -463,6 +465,7 @@ if args.reco:
         outputDirRoot=outputDir if args.output_root else None,
         outputDirCsv=outputDir if args.output_csv else None,
         writeCovMat=True,
+        # logLevel=acts.logging.VERBOSE,
     )
 
     if ambi_ML:

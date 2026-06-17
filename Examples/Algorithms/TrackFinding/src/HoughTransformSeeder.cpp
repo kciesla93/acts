@@ -347,6 +347,8 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     std::ranges::copy_if(spMeasurementsAllParticles,
                          std::back_inserter(spMeasurements),
                          isFromDominantParticle);
+    // std::ranges::copy(spMeasurementsAllParticles,
+    //                   std::back_inserter(spMeasurements));
 
     if (spMeasurementsAllParticles.size() != spMeasurements.size()) {
       ACTS_DEBUG(std::format(
@@ -375,11 +377,15 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
           std::format("Removed {} duplicate SP(s)", size_before - size_after));
     }
 
-    ACTS_DEBUG(std::format("Spacepoints ({}):", spMeasurements.size()));
+    ACTS_DEBUG(std::format("Spacepoints ({}) for particle {}",
+                           spMeasurements.size(), particle_hash));
     for (const auto meas : spMeasurements) {
-      ACTS_DEBUG(std::format("\t(r, z, phi, layer, idx) = ({}, {}, {}, {}, {})",
-                             meas->radius, meas->z, meas->phi, meas->layer,
-                             meas->sp_index));
+      ACTS_DEBUG(std::format(
+          "\t(r, z, phi, layer, idx, eta, cot(theta)) = ({:9.2f}, {:9.2f}, "
+          "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {}",
+          meas->radius, meas->z, meas->phi, meas->layer, meas->sp_index,
+          meas->eta, meas->z / meas->radius,
+          isFromDominantParticle(meas) ? "" : "!!!"));
     }
 
     if (spMeasurements.size() < 3) {
