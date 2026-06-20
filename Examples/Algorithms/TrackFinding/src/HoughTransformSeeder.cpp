@@ -34,6 +34,8 @@
 #include <ostream>
 #include <stdexcept>
 
+#include <Eigen/src/Core/Matrix.h>
+
 namespace ActsExamples {
 
 namespace Wedges {
@@ -321,19 +323,16 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                            std::span<const unsigned long> allIndices, int slice,
                            std::size_t particle_hash) {
     auto sample = seed_timer.sample();
-    std::vector<const HoughMeasurementStruct*> spMeasurementsAllParticles;
+    std::vector<const HoughMeasurementStruct*> spMeasurements;
     for (const HoughMeasurement index : allIndices) {
       if (houghMeasurementStructs[index]->type == HoughHitType::SP) {
-        spMeasurementsAllParticles.push_back(
-            houghMeasurementStructs[index].get());
+        spMeasurements.push_back(houghMeasurementStructs[index].get());
       }
     }
 
-    ACTS_DEBUG(std::format("Seed candidate with {} SP(s)",
-                           spMeasurementsAllParticles.size()));
+    ACTS_DEBUG(
+        std::format("Seed candidate with {} SP(s)", spMeasurements.size()));
 
-    std::vector<const HoughMeasurementStruct*> spMeasurements;
-    // Remove SP from non-dominant particles
     auto isFromDominantParticle =
         [&measurementParticleMap,
          particle_hash](const HoughMeasurementStruct* measurement) {
@@ -344,24 +343,14 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                        particle_hash;
               });
         };
-    std::ranges::copy_if(spMeasurementsAllParticles,
-                         std::back_inserter(spMeasurements),
-                         isFromDominantParticle);
-    // std::ranges::copy(spMeasurementsAllParticles,
-    //                   std::back_inserter(spMeasurements));
 
-    if (spMeasurementsAllParticles.size() != spMeasurements.size()) {
-      ACTS_DEBUG(std::format(
-          "Removed {} SP(s) from non-dominant particles",
-          spMeasurementsAllParticles.size() - spMeasurements.size()));
-    }
-
+    // Sort by layers first and remove duplicates, then sort by distance.
+    // Otherwise, some weird SP pairs may slip.
+    // FIXME: Think of something better!
     const std::size_t size_before = spMeasurements.size();
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
                                          const HoughMeasurementStruct* rhs) {
-      const float dist_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
-      const float dist_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
-      return dist_lhs < dist_rhs;
+      return lhs->layer < rhs->layer;
     });
 
     auto nonUnique = std::ranges::unique(spMeasurements,
@@ -377,18 +366,92 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
           std::format("Removed {} duplicate SP(s)", size_before - size_after));
     }
 
-    ACTS_DEBUG(std::format("Spacepoints ({}) for particle {}",
-                           spMeasurements.size(), particle_hash));
-    for (const auto meas : spMeasurements) {
-      ACTS_DEBUG(std::format(
-          "\t(r, z, phi, layer, idx, eta, cot(theta)) = ({:9.2f}, {:9.2f}, "
-          "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {}",
-          meas->radius, meas->z, meas->phi, meas->layer, meas->sp_index,
-          meas->eta, meas->z / meas->radius,
-          isFromDominantParticle(meas) ? "" : "!!!"));
+    std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
+                                         const HoughMeasurementStruct* rhs) {
+      const float dist_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
+      const float dist_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
+      return dist_lhs < dist_rhs;
+    });
+
+    // Find SPs which are compatible with each other.
+    Eigen::MatrixXf sp_cotTheta(spMeasurements.size(), spMeasurements.size());
+
+    const float granularity = slice >= 5 && slice <= 7    ? 50
+                              : slice >= 2 && slice <= 10 ? 25
+                                                          : 10;
+
+    for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
+      for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
+        sp_cotTheta(idx, idx2) =
+            idx != idx2 ? std::round(((meas->z - meas2->z) /
+                                      (meas->radius - meas2->radius)) *
+                                     granularity) /
+                              granularity
+                        : 0;
+      }
     }
 
-    if (spMeasurements.size() < 3) {
+    std::vector<float> all_cotTheta;
+    all_cotTheta.reserve(spMeasurements.size() * spMeasurements.size() -
+                         spMeasurements.size());
+    std::ranges::copy(sp_cotTheta.reshaped(), std::back_inserter(all_cotTheta));
+    std::map<float, int> counts;
+    for (const float cotTheta : all_cotTheta) {
+      if (cotTheta != 0) {
+        counts[cotTheta]++;
+      }
+    }
+
+    const auto& [mode, count] = *std::max_element(
+        counts.begin(), counts.end(),
+        [](const auto lhs, const auto rhs) { return lhs.second < rhs.second; });
+
+    std::vector<int> compatible_count;
+    compatible_count.reserve(spMeasurements.size());
+    for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
+      compatible_count.push_back(
+          std::ranges::count_if(sp_cotTheta.col(idx), [mode](float cotTheta) {
+            return cotTheta == mode || cotTheta == 0.f;
+          }));
+    }
+
+    const std::size_t most_compatible = std::distance(
+        compatible_count.begin(), std::ranges::max_element(compatible_count));
+
+    std::set<std::size_t> sp_indices = {};
+    for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
+      if (sp_cotTheta.col(most_compatible)(idx) == mode ||
+          sp_cotTheta.col(most_compatible)(idx) == 0.f) {
+        sp_indices.insert(idx);
+      }
+    }
+
+    std::vector<const HoughMeasurementStruct*> spMeasurementsSelected;
+    spMeasurementsSelected.reserve(sp_indices.size());
+    for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
+      if (std::ranges::find(sp_indices, idx) != sp_indices.end()) {
+        spMeasurementsSelected.push_back(meas);
+      }
+    }
+
+    ACTS_DEBUG(std::format(
+        "Spacepoints ({} -> {}) for particle {} mode={} ({}) "
+        "most_compatible={} ({}):",
+        spMeasurements.size(), spMeasurementsSelected.size(), particle_hash,
+        mode, count, most_compatible, compatible_count[most_compatible]));
+    for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
+      ACTS_DEBUG(std::format(
+          "\t(r, z, phi, layer, idx, eta, cot(theta)) = ({:9.2f}, {:9.2f}, "
+          "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {} {}",
+          meas->radius, meas->z, meas->phi, meas->layer, meas->sp_index,
+          meas->eta, meas->z / meas->radius,
+          isFromDominantParticle(meas) ? "+++" : "!!!",
+          std::ranges::find(sp_indices, idx) != sp_indices.end() ? "+++"
+                                                                 : "!!!"));
+    }
+    ACTS_DEBUG("SP cotTheta matrix:\n" << sp_cotTheta);
+
+    if (spMeasurementsSelected.size() < 3) {
       ACTS_DEBUG("Skipping...");
       return;
     }
@@ -396,24 +459,28 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     std::vector<const HoughMeasurementStruct*> spSeedMeasurements;
     switch (m_cfg.seedType) {
       case SeedType::NearTriplet:
-        std::copy(spMeasurements.begin(), spMeasurements.begin() + 3,
+        std::copy(spMeasurementsSelected.begin(),
+                  spMeasurementsSelected.begin() + 3,
                   std::back_inserter(spSeedMeasurements));
         break;
       case SeedType::FarTriplet:
-        std::copy(spMeasurements.rbegin(), spMeasurements.rbegin() + 3,
+        std::copy(spMeasurementsSelected.rbegin(),
+                  spMeasurementsSelected.rbegin() + 3,
                   std::back_inserter(spSeedMeasurements));
         break;
       case SeedType::NearTripletSkipFirst:
-        std::copy(spMeasurements.begin() + 1, spMeasurements.begin() + 4,
+        std::copy(spMeasurementsSelected.begin() + 1,
+                  spMeasurementsSelected.begin() + 4,
                   std::back_inserter(spSeedMeasurements));
         break;
       case SeedType::NearMiddleFarTriplet:
-        spSeedMeasurements.push_back(spMeasurements.front());
-        spSeedMeasurements.push_back(spMeasurements[spMeasurements.size() / 2]);
-        spSeedMeasurements.push_back(spMeasurements.back());
+        spSeedMeasurements.push_back(spMeasurementsSelected.front());
+        spSeedMeasurements.push_back(
+            spMeasurementsSelected[spMeasurementsSelected.size() / 2]);
+        spSeedMeasurements.push_back(spMeasurementsSelected.back());
         break;
       case SeedType::All:
-        std::ranges::copy(spMeasurements,
+        std::ranges::copy(spMeasurementsSelected,
                           std::back_inserter(spSeedMeasurements));
         break;
     }
