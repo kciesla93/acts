@@ -354,9 +354,9 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     // Find SPs which are compatible with each other.
     Eigen::MatrixXf sp_cotTheta(spMeasurements.size(), spMeasurements.size());
 
-    const float granularity = slice >= 5 && slice <= 7    ? 50
-                              : slice >= 2 && slice <= 10 ? 25
-                                                          : 10;
+    const float granularity = slice >= 5 && slice <= 7    ? 50.f
+                              : slice >= 2 && slice <= 10 ? 25.f
+                                                          : 10.f;
 
     // Fill matrix
     for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
@@ -376,7 +376,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       for (std::size_t idx2 = 0; idx2 < idx; ++idx2) {
         if (const float cotTheta = sp_cotTheta(idx, idx2);
             !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
-            std::abs(cotTheta) < 1e-6 ||
+            std::abs(cotTheta) == 0 ||
             std::abs(cotTheta) > 1e3) {  // TODO: Tune?
           incompatibleSPs.emplace_back(idx, idx2);
         }
