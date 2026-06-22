@@ -344,28 +344,6 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
               });
         };
 
-    // Sort by layers first and remove duplicates, then sort by distance.
-    // Otherwise, some weird SP pairs may slip.
-    // FIXME: Think of something better!
-    const std::size_t size_before = spMeasurements.size();
-    std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
-                                         const HoughMeasurementStruct* rhs) {
-      return lhs->layer < rhs->layer;
-    });
-
-    auto nonUnique = std::ranges::unique(spMeasurements,
-                                         [](const HoughMeasurementStruct* lhs,
-                                            const HoughMeasurementStruct* rhs) {
-                                           return lhs->layer == rhs->layer;
-                                         });
-    spMeasurements.erase(nonUnique.begin(), nonUnique.end());
-    const std::size_t size_after = spMeasurements.size();
-
-    if (size_before != size_after) {
-      ACTS_DEBUG(
-          std::format("Removed {} duplicate SP(s)", size_before - size_after));
-    }
-
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
                                          const HoughMeasurementStruct* rhs) {
       const float dist_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
@@ -380,6 +358,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                               : slice >= 2 && slice <= 10 ? 25
                                                           : 10;
 
+    // Fill matrix
     for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
       for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
         sp_cotTheta(idx, idx2) =
@@ -391,6 +370,20 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       }
     }
 
+    // Find SP pairs which are incompatible with each other
+    std::vector<std::pair<std::size_t, std::size_t>> incompatibleSPs;
+    for (std::size_t idx = 1; idx < spMeasurements.size(); ++idx) {
+      for (std::size_t idx2 = 0; idx2 < idx; ++idx2) {
+        if (const float cotTheta = sp_cotTheta(idx, idx2);
+            !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
+            std::abs(cotTheta) < 1e-6 ||
+            std::abs(cotTheta) > 1e3) {  // TODO: Tune?
+          incompatibleSPs.emplace_back(idx, idx2);
+        }
+      }
+    }
+
+    // Find mode
     std::vector<float> all_cotTheta;
     all_cotTheta.reserve(spMeasurements.size() * spMeasurements.size() -
                          spMeasurements.size());
@@ -406,26 +399,35 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
         counts.begin(), counts.end(),
         [](const auto lhs, const auto rhs) { return lhs.second < rhs.second; });
 
+    // Find which SP has the highest number of compatible SPs
     std::vector<int> compatible_count;
     compatible_count.reserve(spMeasurements.size());
     for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
-      compatible_count.push_back(
-          std::ranges::count_if(sp_cotTheta.col(idx), [mode](float cotTheta) {
-            return cotTheta == mode || cotTheta == 0.f;
-          }));
+      compatible_count.push_back(std::ranges::count_if(
+          sp_cotTheta.col(idx),
+          [mode](float cotTheta) { return cotTheta == mode; }));
     }
 
     const std::size_t most_compatible = std::distance(
         compatible_count.begin(), std::ranges::max_element(compatible_count));
 
-    std::set<std::size_t> sp_indices = {};
+    // Preselect SP indices
+    std::set<std::size_t> sp_indices = {most_compatible};
     for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
-      if (sp_cotTheta.col(most_compatible)(idx) == mode ||
-          sp_cotTheta.col(most_compatible)(idx) == 0.f) {
+      if (sp_cotTheta.col(most_compatible)(idx) == mode) {
         sp_indices.insert(idx);
       }
     }
 
+    // Check for incompatible pairs
+    for (const auto& [sp1, sp2] : incompatibleSPs) {
+      if (sp_indices.contains(sp1) && sp_indices.contains(sp2) &&
+          spMeasurements[sp1]->layer == spMeasurements[sp2]->layer) {
+        sp_indices.erase(sp2);  // TODO: Which one should be removed?
+      }
+    }
+
+    // Select SPs
     std::vector<const HoughMeasurementStruct*> spMeasurementsSelected;
     spMeasurementsSelected.reserve(sp_indices.size());
     for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
