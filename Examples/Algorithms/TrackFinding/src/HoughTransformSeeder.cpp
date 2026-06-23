@@ -702,7 +702,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     //   return peaks_hist;
     // }();
 
-    {
+    if (!m_reader->hasPeaks()) {
       auto writerSample = writeHist_timer.sample();
       if (m_cfg.writeToSingleFile) {
         m_writer->writeObj(hough_hist.get());

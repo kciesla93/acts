@@ -481,6 +481,9 @@ struct ActsExamples::HoughTransformSeeder::NNReader {
   NNReader(const NNReader&) = delete;
   NNReader operator=(const NNReader&) = delete;
 
+  /// Check if peaks are loaded
+  [[nodiscard]] bool hasPeaks() const noexcept { return !allPeaks.empty(); }
+
   std::vector<Peak> getPeaks(std::uint32_t eventNumber,
                              std::uint32_t slice) const noexcept {
     std::vector<Peak> peaks;
