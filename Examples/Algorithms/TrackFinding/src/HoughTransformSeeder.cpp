@@ -344,6 +344,17 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
               });
         };
 
+    const float granularity = slice >= 5 && slice <= 7    ? 50.f
+                              : slice >= 2 && slice <= 10 ? 25.f
+                                                          : 10.f;
+    auto roundedCotTheta = [granularity](const HoughMeasurementStruct* meas,
+                                         const HoughMeasurementStruct* other) {
+      return std::round(
+                 ((meas->z - other->z) / (meas->radius - other->radius)) *
+                 granularity) /
+             granularity;
+    };
+
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
                                          const HoughMeasurementStruct* rhs) {
       const float dist_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
@@ -354,19 +365,10 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     // Find SPs which are compatible with each other.
     Eigen::MatrixXf sp_cotTheta(spMeasurements.size(), spMeasurements.size());
 
-    const float granularity = slice >= 5 && slice <= 7    ? 50.f
-                              : slice >= 2 && slice <= 10 ? 25.f
-                                                          : 10.f;
-
     // Fill matrix
     for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
       for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
-        sp_cotTheta(idx, idx2) =
-            idx != idx2 ? std::round(((meas->z - meas2->z) /
-                                      (meas->radius - meas2->radius)) *
-                                     granularity) /
-                              granularity
-                        : 0;
+        sp_cotTheta(idx, idx2) = idx != idx2 ? roundedCotTheta(meas, meas2) : 0;
       }
     }
 
