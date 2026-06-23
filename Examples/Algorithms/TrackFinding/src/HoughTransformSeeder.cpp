@@ -277,8 +277,6 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                                              logger(), Acts::Logging::DEBUG);
   Acts::AveragingScopedTimer seed_timer("HoughTransformSeeder::addSeed",
                                         logger(), Acts::Logging::DEBUG);
-  Acts::AveragingScopedTimer peaks_timer("HoughTransformSeeder::readPeaks",
-                                         logger(), Acts::Logging::DEBUG);
 
   ACTS_VERBOSE("event=" << ctx.eventNumber);
 
@@ -522,7 +520,8 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     const auto eventPeaks = m_reader->getPeaks(ctx.eventNumber, subregion);
 
-    ACTS_DEBUG("Processing subregion " << subregion);
+    ACTS_DEBUG("Processing subregion " << subregion << " with "
+                                       << eventPeaks.size() << " peaks");
 
     const auto hough_name =
         std::format("event_{:06}_{:02}", ctx.eventNumber, subregion);
