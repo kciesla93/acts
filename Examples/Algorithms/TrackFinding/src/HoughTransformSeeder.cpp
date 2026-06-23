@@ -357,30 +357,31 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
                                          const HoughMeasurementStruct* rhs) {
-      const float dist_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
-      const float dist_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
-      return dist_lhs < dist_rhs;
+      const float dist2_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
+      const float dist2_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
+      return dist2_lhs < dist2_rhs;
     });
 
     // Find SPs which are compatible with each other.
     Eigen::MatrixXf sp_cotTheta(spMeasurements.size(), spMeasurements.size());
 
     // Fill matrix
-    for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
+    for (const auto&& [idx1, meas1] : Acts::enumerate(spMeasurements)) {
       for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
-        sp_cotTheta(idx, idx2) = idx != idx2 ? roundedCotTheta(meas, meas2) : 0;
+        sp_cotTheta(idx1, idx2) =
+            idx1 != idx2 ? roundedCotTheta(meas1, meas2) : 0;
       }
     }
 
     // Find SP pairs which are incompatible with each other
     std::vector<std::pair<std::size_t, std::size_t>> incompatibleSPs;
-    for (std::size_t idx = 1; idx < spMeasurements.size(); ++idx) {
-      for (std::size_t idx2 = 0; idx2 < idx; ++idx2) {
-        if (const float cotTheta = sp_cotTheta(idx, idx2);
+    for (std::size_t idx1 = 1; idx1 < spMeasurements.size(); ++idx1) {
+      for (std::size_t idx2 = 0; idx2 < idx1; ++idx2) {
+        if (const float cotTheta = sp_cotTheta(idx1, idx2);
             !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
             std::abs(cotTheta) == 0 ||
             std::abs(cotTheta) > 1e3) {  // TODO: Tune?
-          incompatibleSPs.emplace_back(idx, idx2);
+          incompatibleSPs.emplace_back(idx1, idx2);
         }
       }
     }
