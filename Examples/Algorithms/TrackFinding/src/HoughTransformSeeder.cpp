@@ -258,9 +258,16 @@ HoughTransformSeeder::HoughTransformSeeder(
   switch (m_cfg.slicing) {
     case Slicing::Wedges:
       m_cfg.sliceTester.connect<slicerWedges>();
+      if (m_cfg.subRegions.empty()) {
+        m_cfg.subRegions = std::vector<int>(Wedges::nWedges);
+        std::iota(m_cfg.subRegions.begin(), m_cfg.subRegions.end(), 0);
+      }
       break;
     case Slicing::None:
       m_cfg.sliceTester.connect<slicerNone>();
+      if (m_cfg.subRegions.empty()) {
+        m_cfg.subRegions = {-1};
+      }
     default:
       break;
   }
