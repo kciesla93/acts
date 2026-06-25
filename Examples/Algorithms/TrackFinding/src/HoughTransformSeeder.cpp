@@ -308,9 +308,102 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     return HoughHist(m_cfg.plane);
   }();
 
+  const auto filterSpacePoints =
+      [](const std::vector<const HoughMeasurementStruct*>& spMeasurements) {
+        const float granularity = 40.f;
+        auto roundedCotTheta = [granularity](
+                                   const HoughMeasurementStruct* meas,
+                                   const HoughMeasurementStruct* other) {
+          const float cotTheta =
+              (meas->z - other->z) / (meas->radius - other->radius);
+          return std::round((cotTheta)*granularity) / granularity;
+        };
+
+        auto spIncompatible = [](float cotTheta) {
+          return !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
+                 std::abs(cotTheta) == 0 ||
+                 std::abs(cotTheta) > 1e3;  // TODO: Tune?
+        };
+
+        // Find SPs which are compatible with each other.
+        Eigen::MatrixXf sp_cotTheta(spMeasurements.size(),
+                                    spMeasurements.size());
+
+        // Fill cotθ matrix and find mode
+        std::map<float, int> counts;
+        for (const auto&& [idx1, meas1] : Acts::enumerate(spMeasurements)) {
+          for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
+            const float cotTheta = roundedCotTheta(meas1, meas2);
+
+            if (idx1 != idx2) {
+              sp_cotTheta(idx1, idx2) = cotTheta;
+              counts[sp_cotTheta(idx1, idx2)]++;
+            } else {
+              sp_cotTheta(idx1, idx2) = 0;
+            }
+          }
+        }
+
+        // Find SP pairs which are incompatible with each other
+        std::vector<std::pair<std::size_t, std::size_t>> incompatibleSPs;
+        for (std::size_t idx1 = 1; idx1 < spMeasurements.size(); ++idx1) {
+          for (std::size_t idx2 = 0; idx2 < idx1; ++idx2) {
+            if (spIncompatible(sp_cotTheta(idx1, idx2))) {
+              incompatibleSPs.emplace_back(idx1, idx2);
+            }
+          }
+        }
+
+        const auto& [mode, count] = *std::max_element(
+            counts.begin(), counts.end(), [](const auto lhs, const auto rhs) {
+              return lhs.second < rhs.second;
+            });
+
+        // Find which SP has the highest number of compatible SPs
+        std::vector<int> compatible_count;
+        compatible_count.reserve(spMeasurements.size());
+        for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
+          compatible_count.push_back(std::ranges::count_if(
+              sp_cotTheta.col(idx),
+              [mode](float cotTheta) { return cotTheta == mode; }));
+        }
+
+        const std::size_t most_compatible =
+            std::distance(compatible_count.begin(),
+                          std::ranges::max_element(compatible_count));
+
+        // Preselect SP indices
+        std::set<std::size_t> sp_indices = {most_compatible};
+        for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
+          if (sp_cotTheta.col(most_compatible)(idx) == mode) {
+            sp_indices.insert(idx);
+          }
+        }
+
+        // Check for incompatible pairs
+        for (const auto& [sp1, sp2] : incompatibleSPs) {
+          if (sp_indices.contains(sp1) && sp_indices.contains(sp2) &&
+              spMeasurements[sp1]->layer == spMeasurements[sp2]->layer) {
+            sp_indices.erase(sp2);  // TODO: Which one should be removed?
+          }
+        }
+
+        // Select SPs
+        std::vector<const HoughMeasurementStruct*> spMeasurementsSelected;
+        spMeasurementsSelected.reserve(sp_indices.size());
+        for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
+          if (std::ranges::find(sp_indices, idx) != sp_indices.end()) {
+            spMeasurementsSelected.push_back(meas);
+          }
+        }
+
+        return spMeasurementsSelected;
+      };
+
   int iSeed = 0;
 
-  const auto addSeed = [this, &seed_timer, &iSeed, &measurementParticleMap](
+  const auto addSeed = [this, &seed_timer, &iSeed, &measurementParticleMap,
+                        filterSpacePoints](
                            std::span<const unsigned long> allIndices, int slice,
                            std::size_t particle_hash) {
     auto sample = seed_timer.sample();
@@ -335,114 +428,28 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
               });
         };
 
-    const float granularity = slice >= 5 && slice <= 7    ? 50.f
-                              : slice >= 2 && slice <= 10 ? 25.f
-                                                          : 10.f;
-    auto roundedCotTheta = [granularity](const HoughMeasurementStruct* meas,
-                                         const HoughMeasurementStruct* other) {
-      const float cotTheta =
-          (meas->z - other->z) / (meas->radius - other->radius);
-      return std::round((cotTheta)*granularity) / granularity;
-    };
+    // Filter SpacePoints
+    auto spMeasurementsSelected = filterSpacePoints(spMeasurements);
 
-    auto spIncompatible = [](float cotTheta) {
-      return !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
-             std::abs(cotTheta) == 0 ||
-             std::abs(cotTheta) > 1e3;  // TODO: Tune?
-    };
-
-    std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
-                                         const HoughMeasurementStruct* rhs) {
-      const float dist2_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
-      const float dist2_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
-      return dist2_lhs < dist2_rhs;
-    });
-
-    // Find SPs which are compatible with each other.
-    Eigen::MatrixXf sp_cotTheta(spMeasurements.size(), spMeasurements.size());
-
-    // Fill cotθ matrix and find mode
-    std::map<float, int> counts;
-    for (const auto&& [idx1, meas1] : Acts::enumerate(spMeasurements)) {
-      for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
-        const float cotTheta = roundedCotTheta(meas1, meas2);
-
-        if (idx1 != idx2) {
-          sp_cotTheta(idx1, idx2) = cotTheta;
-          counts[sp_cotTheta(idx1, idx2)]++;
-        } else {
-          sp_cotTheta(idx1, idx2) = 0;
-        }
-      }
-    }
-
-    // Find SP pairs which are incompatible with each other
-    std::vector<std::pair<std::size_t, std::size_t>> incompatibleSPs;
-    for (std::size_t idx1 = 1; idx1 < spMeasurements.size(); ++idx1) {
-      for (std::size_t idx2 = 0; idx2 < idx1; ++idx2) {
-        if (spIncompatible(sp_cotTheta(idx1, idx2))) {
-          incompatibleSPs.emplace_back(idx1, idx2);
-        }
-      }
-    }
-
-    const auto& [mode, count] = *std::max_element(
-        counts.begin(), counts.end(),
-        [](const auto lhs, const auto rhs) { return lhs.second < rhs.second; });
-
-    // Find which SP has the highest number of compatible SPs
-    std::vector<int> compatible_count;
-    compatible_count.reserve(spMeasurements.size());
-    for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
-      compatible_count.push_back(std::ranges::count_if(
-          sp_cotTheta.col(idx),
-          [mode](float cotTheta) { return cotTheta == mode; }));
-    }
-
-    const std::size_t most_compatible = std::distance(
-        compatible_count.begin(), std::ranges::max_element(compatible_count));
-
-    // Preselect SP indices
-    std::set<std::size_t> sp_indices = {most_compatible};
-    for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
-      if (sp_cotTheta.col(most_compatible)(idx) == mode) {
-        sp_indices.insert(idx);
-      }
-    }
-
-    // Check for incompatible pairs
-    for (const auto& [sp1, sp2] : incompatibleSPs) {
-      if (sp_indices.contains(sp1) && sp_indices.contains(sp2) &&
-          spMeasurements[sp1]->layer == spMeasurements[sp2]->layer) {
-        sp_indices.erase(sp2);  // TODO: Which one should be removed?
-      }
-    }
-
-    // Select SPs
-    std::vector<const HoughMeasurementStruct*> spMeasurementsSelected;
-    spMeasurementsSelected.reserve(sp_indices.size());
-    for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
-      if (std::ranges::find(sp_indices, idx) != sp_indices.end()) {
-        spMeasurementsSelected.push_back(meas);
-      }
-    }
+    std::ranges::sort(
+        spMeasurementsSelected, [](const HoughMeasurementStruct* lhs,
+                                   const HoughMeasurementStruct* rhs) {
+          const float dist2_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
+          const float dist2_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
+          return dist2_lhs < dist2_rhs;
+        });
 
     ACTS_VERBOSE(std::format(
-        "Spacepoints ({} -> {}) for particle {} mode={} ({}) "
-        "most_compatible={} ({}):",
-        spMeasurements.size(), spMeasurementsSelected.size(), particle_hash,
-        mode, count, most_compatible, compatible_count[most_compatible]));
+        "Spacepoints ({} -> {}) for particle {}:", spMeasurements.size(),
+        spMeasurementsSelected.size(), particle_hash));
     for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
       ACTS_VERBOSE(std::format(
           "\t(r, z, phi, layer, idx, eta, cot(theta)) = ({:9.2f}, {:9.2f}, "
-          "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {} {}",
+          "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {}",
           meas->radius, meas->z, meas->phi, meas->layer, meas->sp_index,
           meas->eta, meas->z / meas->radius,
-          isFromDominantParticle(meas) ? "+++" : "!!!",
-          std::ranges::find(sp_indices, idx) != sp_indices.end() ? "+++"
-                                                                 : "!!!"));
+          isFromDominantParticle(meas) ? "+++" : "!!!"));
     }
-    ACTS_VERBOSE("SP cotTheta matrix:\n" << sp_cotTheta);
 
     if (spMeasurementsSelected.size() < 3) {
       ACTS_VERBOSE("Skipping...");
