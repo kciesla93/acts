@@ -345,6 +345,12 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       return std::round((cotTheta)*granularity) / granularity;
     };
 
+    auto spIncompatible = [](float cotTheta) {
+      return !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
+             std::abs(cotTheta) == 0 ||
+             std::abs(cotTheta) > 1e3;  // TODO: Tune?
+    };
+
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
                                          const HoughMeasurementStruct* rhs) {
       const float dist2_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
@@ -374,10 +380,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     std::vector<std::pair<std::size_t, std::size_t>> incompatibleSPs;
     for (std::size_t idx1 = 1; idx1 < spMeasurements.size(); ++idx1) {
       for (std::size_t idx2 = 0; idx2 < idx1; ++idx2) {
-        if (const float cotTheta = sp_cotTheta(idx1, idx2);
-            !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
-            std::abs(cotTheta) == 0 ||
-            std::abs(cotTheta) > 1e3) {  // TODO: Tune?
+        if (spIncompatible(sp_cotTheta(idx1, idx2))) {
           incompatibleSPs.emplace_back(idx1, idx2);
         }
       }
@@ -497,8 +500,8 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     }
 
     ACTS_VERBOSE(std::format("Adding seed #{} (in slice {}) with {} SPs: {}",
-                           iSeed++, slice, spIndices.size(),
-                           to_string(spIndices)));
+                             iSeed++, slice, spIndices.size(),
+                             to_string(spIndices)));
   };
 
   // loop over our subregions and run the Hough Transform on each
