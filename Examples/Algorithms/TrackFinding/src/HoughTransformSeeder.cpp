@@ -38,9 +38,9 @@
 
 namespace ActsExamples {
 
-namespace Wedges {
-static std::vector<Wedge> wedges;
-}  // namespace Wedges
+namespace EtaSlicer {
+static std::vector<EtaSlice> etaSlices;
+}  // namespace EtaSlicer
 
 static inline int quant(double min, double max, unsigned nSteps, double val);
 static inline double unquant(double min, double max, unsigned nSteps, int step);
@@ -225,20 +225,21 @@ HoughTransformSeeder::HoughTransformSeeder(
     return ResultBool::success(slice == -1);
   };
 
-  auto slicerWedges = [](const std::shared_ptr<HoughMeasurementStruct>& meas,
-                         int slice) -> ResultBool {
+  auto slicerEtaSlices = [](const std::shared_ptr<HoughMeasurementStruct>& meas,
+                            int slice) -> ResultBool {
     if (slice == -1) {
       return ResultBool::success(true);
     }
 
     return ResultBool::success(
-        Wedges::wedges[slice].in_rZ(meas->radius, meas->z));
+        EtaSlicer::etaSlices[slice].in_rZ(meas->radius, meas->z));
   };
 
   switch (m_cfg.slicing) {
-    case Slicing::Wedges:
-      m_cfg.sliceTester.connect<slicerWedges>();
-      Wedges::wedges = Wedges::make_wedges(m_cfg.nSubRegions);
+    case Slicing::Eta:
+      m_cfg.sliceTester.connect<slicerEtaSlices>();
+
+      EtaSlicer::etaSlices = EtaSlicer::make_slices(m_cfg.nSubRegions);
       if (m_cfg.subRegions.empty()) {
         m_cfg.subRegions = std::vector<int>(m_cfg.nSubRegions);
         std::iota(m_cfg.subRegions.begin(), m_cfg.subRegions.end(), 0);
@@ -252,6 +253,10 @@ HoughTransformSeeder::HoughTransformSeeder(
     default:
       break;
   }
+
+  ACTS_LOG_WITH_LOGGER(
+      this->logger(), Acts::Logging::INFO,
+      "Splitting detector into " << m_cfg.subRegions.size() << " subregions");
 }
 
 ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {

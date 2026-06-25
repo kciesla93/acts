@@ -125,7 +125,7 @@ using HoughHist = Acts::HoughTransformUtils::HoughPlane<HoughMeasurement>;
 
 enum HoughHitType { SP = 0, MEASUREMENT = 1 };
 enum class Binning { EqudistantQoverPt, EqudistantPt, Steps, FinerCentral };
-enum class Slicing { None, Wedges };
+enum class Slicing { None, Eta };
 enum class SeedType {
   All,
   NearTriplet,
@@ -201,9 +201,15 @@ class HoughTransformSeeder final : public IAlgorithm {
     // one subregion, and hits with z > -50 mm belong to a second subregion.
     // Note that hits even in this toy example belong to more than one
     // subregion. But since not all hits are considered this provides a way to
-    // reduce potential combinatorics
+    // reduce potential combinatorics.
 
+    /// Number of subregions to split HT into if slicing other than
+    /// Slicing::None is provided.
     std::size_t nSubRegions = 0;
+
+    /// Subregions to use. If nothing is provided it will be set to {-1} (entire
+    /// detector) for Slicing::None or {0..nSubRegions-1} for other slicing
+    /// method. Useful for selecting subset of subregions.
     std::vector<int> subRegions = {};
 
     unsigned nLayers = 48;  // total number of layers
@@ -261,7 +267,7 @@ class HoughTransformSeeder final : public IAlgorithm {
     float truthPtCut = 1;    // [GeV]
 
     static constexpr Binning binning = Binning::FinerCentral;
-    static constexpr Slicing slicing = Slicing::Wedges;
+    static constexpr Slicing slicing = Slicing::Eta;
     static constexpr SeedType seedType = SeedType::NearMiddleFarTriplet;
 
     bool writeToSingleFile = false;  // Defaults to false for now
@@ -497,19 +503,19 @@ struct ActsExamples::HoughTransformSeeder::NNReader {
   }
 };
 
-namespace Wedges {
+namespace EtaSlicer {
 struct Reg {
   float center;
   float width;
 };
 
-struct Wedge {
+struct EtaSlice {
   float aleft;
   float aright;
   float bleft;
   float bright;
 
-  Wedge(Reg z, Reg eta) {
+  EtaSlice(Reg z, Reg eta) {
     aleft = std::tan(2.0 * std::atan(std::exp(-(eta.center - eta.width))));
     aright = std::tan(2.0 * std::atan(std::exp(-(eta.center + eta.width))));
     bleft = aleft * z.width;
@@ -530,21 +536,21 @@ struct Wedge {
   }
 };
 
-std::vector<Wedge> make_wedges(std::size_t nWedges) {
+std::vector<EtaSlice> make_slices(std::size_t nSlices) {
   static constexpr float zCenter = 0;   // [mm]
   static constexpr float zWidth = 150;  // [mm]
   static constexpr Reg z{zCenter, zWidth};
-  const double etaWidth = 3. / nWedges;
+  const double etaWidth = 3. / nSlices;
 
-  std::vector<Wedge> wedges;
-  wedges.reserve(nWedges);
-  for (std::size_t iWedge = 0; iWedge < nWedges; ++iWedge) {
-    wedges.emplace_back(z, Reg(-3. + (etaWidth * (2 * iWedge + 1)), etaWidth));
+  std::vector<EtaSlice> slices;
+  slices.reserve(nSlices);
+  for (std::size_t iSlice = 0; iSlice < nSlices; ++iSlice) {
+    slices.emplace_back(z, Reg(-3. + (etaWidth * (2 * iSlice + 1)), etaWidth));
   }
 
-  return wedges;
+  return slices;
 }
 
-}  // namespace Wedges
+}  // namespace EtaSlicer
 
 }  // namespace ActsExamples
