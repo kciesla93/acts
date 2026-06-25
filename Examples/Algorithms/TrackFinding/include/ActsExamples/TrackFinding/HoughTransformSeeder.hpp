@@ -162,6 +162,8 @@ class HoughTransformSeeder final : public IAlgorithm {
   using ResultDouble = Acts::Result<double>;
   using ResultBool = Acts::Result<bool>;
   using ResultUnsigned = Acts::Result<unsigned>;
+  using ResultSpacePoints =
+      Acts::Result<std::vector<const HoughMeasurementStruct*>>;
 
   using FieldCorrector = Acts::Delegate<ResultDouble(
       unsigned, double, double)>;  // (unsigned region, double y, double r)
@@ -172,6 +174,8 @@ class HoughTransformSeeder final : public IAlgorithm {
       Acts::Delegate<ResultBool(const std::shared_ptr<HoughMeasurementStruct>&,
                                 int)>;  // (double z,unsigned layer, int slice)
                                         // returns true if measurement in slice
+  using SeedFilter = Acts::Delegate<ResultSpacePoints(
+      const std::vector<const HoughMeasurementStruct*>&)>;
 
   struct Config {
     /// Input space point collections.
@@ -250,6 +254,7 @@ class HoughTransformSeeder final : public IAlgorithm {
     FieldCorrector fieldCorrector;
     LayerIDFinder layerIDFinder;
     SliceTester sliceTester;
+    SeedFilter seedFilter;
 
     Acts::HoughTransformUtils::HoughPlaneConfig plane{houghHistSize_y,
                                                       houghHistSize_x};

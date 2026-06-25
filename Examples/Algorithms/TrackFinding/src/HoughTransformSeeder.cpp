@@ -257,56 +257,6 @@ HoughTransformSeeder::HoughTransformSeeder(
   ACTS_LOG_WITH_LOGGER(
       this->logger(), Acts::Logging::INFO,
       "Splitting detector into " << m_cfg.subRegions.size() << " subregions");
-}
-
-ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
-  Acts::ScopedTimer executeTimer("HoughTransformSeeder::execute", logger(),
-                                 Acts::Logging::DEBUG);
-  Acts::AveragingScopedTimer loop_timer("HoughTransformSeeder::execute::loop",
-                                        logger(), Acts::Logging::DEBUG);
-  Acts::AveragingScopedTimer houghHist_timer(
-      "HoughTransformSeeder::fillHoughHist", logger(), Acts::Logging::DEBUG);
-  Acts::AveragingScopedTimer writeHist_timer("HoughTransformSeeder::writer",
-                                             logger(), Acts::Logging::DEBUG);
-  Acts::AveragingScopedTimer seed_timer("HoughTransformSeeder::addSeed",
-                                        logger(), Acts::Logging::DEBUG);
-
-  ACTS_VERBOSE("event=" << ctx.eventNumber);
-
-  // clear our Hough measurements out from the previous iteration, if at all
-  houghMeasurementStructs.clear();
-  populatedLayers.clear();
-
-  // add SPs to the inputs
-  addSpacePoints(ctx);
-
-  // add ACTS measurements
-  addMeasurements(ctx);
-
-  ACTS_VERBOSE("measurements=" << houghMeasurementStructs.size());
-  ACTS_VERBOSE("populatedLayers=" << populatedLayers.size() << ": "
-                                  << to_string(populatedLayers));
-
-  const auto& measurementParticleMap = m_inputMeasurementParticlesMap(ctx);
-  const auto& particles = m_inputParticles(ctx);
-
-  ACTS_VERBOSE("particles=" << particles.size());
-
-  static thread_local ProtoTrackContainer protoTracks;
-  protoTracks.clear();
-
-  static thread_local Acts::SeedContainer2 seeds;
-  seeds.clear();
-
-  const SpacePointContainer& spacePoints = m_inputSpacePoints(ctx);
-  seeds.assignSpacePointContainer(spacePoints);
-
-  HoughHist houghHist = [this]() {
-    Acts::ScopedTimer createHoughHistTimer(
-        "HoughTransformSeeder::createHoughHist", logger(),
-        Acts::Logging::DEBUG);
-    return HoughHist(m_cfg.plane);
-  }();
 
   const auto filterSpacePoints =
       [](const std::vector<const HoughMeasurementStruct*>& spMeasurements) {
@@ -397,13 +347,64 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
           }
         }
 
-        return spMeasurementsSelected;
+        return ResultSpacePoints::success(spMeasurementsSelected);
       };
+
+  m_cfg.seedFilter.connect(filterSpacePoints);
+}
+
+ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
+  Acts::ScopedTimer executeTimer("HoughTransformSeeder::execute", logger(),
+                                 Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer loop_timer("HoughTransformSeeder::execute::loop",
+                                        logger(), Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer houghHist_timer(
+      "HoughTransformSeeder::fillHoughHist", logger(), Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer writeHist_timer("HoughTransformSeeder::writer",
+                                             logger(), Acts::Logging::DEBUG);
+  Acts::AveragingScopedTimer seed_timer("HoughTransformSeeder::addSeed",
+                                        logger(), Acts::Logging::DEBUG);
+
+  ACTS_VERBOSE("event=" << ctx.eventNumber);
+
+  // clear our Hough measurements out from the previous iteration, if at all
+  houghMeasurementStructs.clear();
+  populatedLayers.clear();
+
+  // add SPs to the inputs
+  addSpacePoints(ctx);
+
+  // add ACTS measurements
+  addMeasurements(ctx);
+
+  ACTS_VERBOSE("measurements=" << houghMeasurementStructs.size());
+  ACTS_VERBOSE("populatedLayers=" << populatedLayers.size() << ": "
+                                  << to_string(populatedLayers));
+
+  const auto& measurementParticleMap = m_inputMeasurementParticlesMap(ctx);
+  const auto& particles = m_inputParticles(ctx);
+
+  ACTS_VERBOSE("particles=" << particles.size());
+
+  static thread_local ProtoTrackContainer protoTracks;
+  protoTracks.clear();
+
+  static thread_local Acts::SeedContainer2 seeds;
+  seeds.clear();
+
+  const SpacePointContainer& spacePoints = m_inputSpacePoints(ctx);
+  seeds.assignSpacePointContainer(spacePoints);
+
+  HoughHist houghHist = [this]() {
+    Acts::ScopedTimer createHoughHistTimer(
+        "HoughTransformSeeder::createHoughHist", logger(),
+        Acts::Logging::DEBUG);
+    return HoughHist(m_cfg.plane);
+  }();
 
   int iSeed = 0;
 
-  const auto addSeed = [this, &seed_timer, &iSeed, &measurementParticleMap,
-                        filterSpacePoints](
+  const auto addSeed = [this, &seed_timer, &iSeed, &measurementParticleMap](
                            std::span<const unsigned long> allIndices, int slice,
                            std::size_t particle_hash) {
     auto sample = seed_timer.sample();
@@ -429,7 +430,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
         };
 
     // Filter SpacePoints
-    auto spMeasurementsSelected = filterSpacePoints(spMeasurements);
+    auto spMeasurementsSelected = m_cfg.seedFilter(spMeasurements).value();
 
     std::ranges::sort(
         spMeasurementsSelected, [](const HoughMeasurementStruct* lhs,
