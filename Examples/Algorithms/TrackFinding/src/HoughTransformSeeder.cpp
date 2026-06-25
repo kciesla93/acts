@@ -331,10 +331,11 @@ HoughTransformSeeder::HoughTransformSeeder(
         }
 
         // Check for incompatible pairs
+        std::set<std::size_t> to_remove;
         for (const auto& [sp1, sp2] : incompatibleSPs) {
           if (sp_indices.contains(sp1) && sp_indices.contains(sp2) &&
               spMeasurements[sp1]->layer == spMeasurements[sp2]->layer) {
-            sp_indices.erase(sp2);  // TODO: Which one should be removed?
+            to_remove.insert(sp2);  // TODO: Which one should be removed?
           }
         }
 
@@ -342,7 +343,8 @@ HoughTransformSeeder::HoughTransformSeeder(
         std::vector<const HoughMeasurementStruct*> spMeasurementsSelected;
         spMeasurementsSelected.reserve(sp_indices.size());
         for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
-          if (std::ranges::find(sp_indices, idx) != sp_indices.end()) {
+          if (std::ranges::find(sp_indices, idx) != sp_indices.end() &&
+              !to_remove.contains(idx)) {
             spMeasurementsSelected.push_back(meas);
           }
         }
