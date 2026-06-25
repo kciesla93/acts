@@ -354,10 +354,9 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
                                                           : 10.f;
     auto roundedCotTheta = [granularity](const HoughMeasurementStruct* meas,
                                          const HoughMeasurementStruct* other) {
-      return std::round(
-                 ((meas->z - other->z) / (meas->radius - other->radius)) *
-                 granularity) /
-             granularity;
+      const float cotTheta =
+          (meas->z - other->z) / (meas->radius - other->radius);
+      return std::round((cotTheta)*granularity) / granularity;
     };
 
     std::ranges::sort(spMeasurements, [](const HoughMeasurementStruct* lhs,
@@ -370,11 +369,18 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     // Find SPs which are compatible with each other.
     Eigen::MatrixXf sp_cotTheta(spMeasurements.size(), spMeasurements.size());
 
-    // Fill matrix
+    // Fill cotθ matrix and find mode
+    std::map<float, int> counts;
     for (const auto&& [idx1, meas1] : Acts::enumerate(spMeasurements)) {
       for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
-        sp_cotTheta(idx1, idx2) =
-            idx1 != idx2 ? roundedCotTheta(meas1, meas2) : 0;
+        const float cotTheta = roundedCotTheta(meas1, meas2);
+
+        if (idx1 != idx2) {
+          sp_cotTheta(idx1, idx2) = cotTheta;
+          counts[sp_cotTheta(idx1, idx2)]++;
+        } else {
+          sp_cotTheta(idx1, idx2) = 0;
+        }
       }
     }
 
@@ -388,18 +394,6 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
             std::abs(cotTheta) > 1e3) {  // TODO: Tune?
           incompatibleSPs.emplace_back(idx1, idx2);
         }
-      }
-    }
-
-    // Find mode
-    std::vector<float> all_cotTheta;
-    all_cotTheta.reserve(spMeasurements.size() * spMeasurements.size() -
-                         spMeasurements.size());
-    std::ranges::copy(sp_cotTheta.reshaped(), std::back_inserter(all_cotTheta));
-    std::map<float, int> counts;
-    for (const float cotTheta : all_cotTheta) {
-      if (cotTheta != 0) {
-        counts[cotTheta]++;
       }
     }
 
