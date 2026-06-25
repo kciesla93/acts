@@ -321,7 +321,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       }
     }
 
-    ACTS_DEBUG(
+    ACTS_VERBOSE(
         std::format("Seed candidate with {} SP(s)", spMeasurements.size()));
 
     auto isFromDominantParticle =
@@ -424,13 +424,13 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       }
     }
 
-    ACTS_DEBUG(std::format(
+    ACTS_VERBOSE(std::format(
         "Spacepoints ({} -> {}) for particle {} mode={} ({}) "
         "most_compatible={} ({}):",
         spMeasurements.size(), spMeasurementsSelected.size(), particle_hash,
         mode, count, most_compatible, compatible_count[most_compatible]));
     for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
-      ACTS_DEBUG(std::format(
+      ACTS_VERBOSE(std::format(
           "\t(r, z, phi, layer, idx, eta, cot(theta)) = ({:9.2f}, {:9.2f}, "
           "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {} {}",
           meas->radius, meas->z, meas->phi, meas->layer, meas->sp_index,
@@ -439,10 +439,10 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
           std::ranges::find(sp_indices, idx) != sp_indices.end() ? "+++"
                                                                  : "!!!"));
     }
-    ACTS_DEBUG("SP cotTheta matrix:\n" << sp_cotTheta);
+    ACTS_VERBOSE("SP cotTheta matrix:\n" << sp_cotTheta);
 
     if (spMeasurementsSelected.size() < 3) {
-      ACTS_DEBUG("Skipping...");
+      ACTS_VERBOSE("Skipping...");
       return;
     }
 
@@ -496,7 +496,7 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
       seed.quality() = 1.0;
     }
 
-    ACTS_DEBUG(std::format("Adding seed #{} (in slice {}) with {} SPs: {}",
+    ACTS_VERBOSE(std::format("Adding seed #{} (in slice {}) with {} SPs: {}",
                            iSeed++, slice, spIndices.size(),
                            to_string(spIndices)));
   };
