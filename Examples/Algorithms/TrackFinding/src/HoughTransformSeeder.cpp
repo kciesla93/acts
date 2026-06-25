@@ -39,27 +39,7 @@
 namespace ActsExamples {
 
 namespace Wedges {
-static constexpr std::size_t nWedges = 13;
-static constexpr float etaWidth = 0.23076923076923078;
-static constexpr float zCenter = 0;   // [mm]
-static constexpr float zWidth = 150;  // [mm]
-static constexpr Reg z{zCenter, zWidth};
-
-static std::array<Wedge, nWedges> wedges{{
-    {z, {-2.769230769230769, etaWidth}},
-    {z, {-2.3076923076923075, etaWidth}},
-    {z, {-1.8461538461538458, etaWidth}},
-    {z, {-1.3846153846153846, etaWidth}},
-    {z, {-0.9230769230769229, etaWidth}},
-    {z, {-0.4615384615384613, etaWidth}},
-    {z, {0, etaWidth}},
-    {z, {0.4615384615384616, etaWidth}},
-    {z, {0.9230769230769234, etaWidth}},
-    {z, {1.384615384615385, etaWidth}},
-    {z, {1.8461538461538467, etaWidth}},
-    {z, {2.3076923076923084, etaWidth}},
-    {z, {2.769230769230769, etaWidth}},
-}};
+static std::vector<Wedge> wedges;
 }  // namespace Wedges
 
 static inline int quant(double min, double max, unsigned nSteps, double val);
@@ -258,8 +238,9 @@ HoughTransformSeeder::HoughTransformSeeder(
   switch (m_cfg.slicing) {
     case Slicing::Wedges:
       m_cfg.sliceTester.connect<slicerWedges>();
+      Wedges::wedges = Wedges::make_wedges(m_cfg.nSubRegions);
       if (m_cfg.subRegions.empty()) {
-        m_cfg.subRegions = std::vector<int>(Wedges::nWedges);
+        m_cfg.subRegions = std::vector<int>(m_cfg.nSubRegions);
         std::iota(m_cfg.subRegions.begin(), m_cfg.subRegions.end(), 0);
       }
       break;

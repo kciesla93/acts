@@ -95,9 +95,9 @@ void addTrackFinding(py::module& mex) {
   ACTS_PYTHON_DECLARE_ALGORITHM(
       HoughTransformSeeder, mex, "HoughTransformSeeder", inputSpacePoints,
       outputSeeds, outputProtoTracks, trackingGeometry, bField,
-      geometrySelection, inputMeasurements, subRegions, nLayers, xMin, xMax,
-      yMin, yMax, houghHistSize_x, houghHistSize_y, hitExtend_x, threshold,
-      localMaxWindowSize);
+      geometrySelection, inputMeasurements, nSubRegions, subRegions, nLayers,
+      xMin, xMax, yMin, yMax, houghHistSize_x, houghHistSize_y, hitExtend_x,
+      threshold, localMaxWindowSize);
 
   ACTS_PYTHON_DECLARE_ALGORITHM(
       AdaptiveHoughTransformSeeder, mex, "AdaptiveHoughTransformSeeder",

@@ -203,6 +203,7 @@ class HoughTransformSeeder final : public IAlgorithm {
     // subregion. But since not all hits are considered this provides a way to
     // reduce potential combinatorics
 
+    std::size_t nSubRegions = 0;
     std::vector<int> subRegions = {};
 
     unsigned nLayers = 48;  // total number of layers
@@ -528,6 +529,22 @@ struct Wedge {
     return lhs < r && r < rhs;
   }
 };
+
+std::vector<Wedge> make_wedges(std::size_t nWedges) {
+  static constexpr float zCenter = 0;   // [mm]
+  static constexpr float zWidth = 150;  // [mm]
+  static constexpr Reg z{zCenter, zWidth};
+  const double etaWidth = 3. / nWedges;
+
+  std::vector<Wedge> wedges;
+  wedges.reserve(nWedges);
+  for (std::size_t iWedge = 0; iWedge < nWedges; ++iWedge) {
+    wedges.emplace_back(z, Reg(-3. + (etaWidth * (2 * iWedge + 1)), etaWidth));
+  }
+
+  return wedges;
+}
+
 }  // namespace Wedges
 
 }  // namespace ActsExamples

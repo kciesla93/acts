@@ -432,6 +432,7 @@ def addSeeding(
             houghTransformConfig.outputSeeds = "seeds"
             houghTransformConfig.bField = field
             houghTransformConfig.trackingGeometry = trackingGeometry
+            houghTransformConfig.nSubRegions = 13
             # houghTransformConfig.subRegions = [6]
             houghTransformConfig.geometrySelection = acts.examples.json.readJsonGeometryList(str(geoSelectionConfigFile))
             seeds = addHoughTransformSeeding(s, houghTransformConfig, logLevel)
