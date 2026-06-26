@@ -418,16 +418,20 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
               });
         };
 
+    auto distanceSorting = [](const HoughMeasurementStruct* lhs,
+                              const HoughMeasurementStruct* rhs) {
+      const float dist2_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
+      const float dist2_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
+      return dist2_lhs < dist2_rhs;
+    };
+
+    if (logger().doPrint(Acts::Logging::VERBOSE)) {
+      std::ranges::sort(spMeasurements, distanceSorting);
+    }
+
     // Filter SpacePoints
     auto spMeasurementsSelected = m_cfg.seedFilter(spMeasurements).value();
-
-    std::ranges::sort(
-        spMeasurementsSelected, [](const HoughMeasurementStruct* lhs,
-                                   const HoughMeasurementStruct* rhs) {
-          const float dist2_lhs = lhs->radius * lhs->radius + lhs->z * lhs->z;
-          const float dist2_rhs = rhs->radius * rhs->radius + rhs->z * rhs->z;
-          return dist2_lhs < dist2_rhs;
-        });
+    std::ranges::sort(spMeasurementsSelected, distanceSorting);
 
     ACTS_VERBOSE(std::format(
         "Spacepoints ({} -> {}) for particle {}:", spMeasurements.size(),
@@ -435,10 +439,14 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
     for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
       ACTS_VERBOSE(std::format(
           "\t(r, z, phi, layer, idx, eta, cot(theta)) = ({:9.2f}, {:9.2f}, "
-          "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {}",
+          "{:9.4f}, {:3d}, {:8d}, {:9.2f}, {:9.2f}) {} {}",
           meas->radius, meas->z, meas->phi, meas->layer, meas->sp_index,
           meas->eta, meas->z / meas->radius,
-          isFromDominantParticle(meas) ? "+++" : "!!!"));
+          isFromDominantParticle(meas) ? "+++" : "!!!",
+          std::ranges::find(spMeasurementsSelected, meas) !=
+                  spMeasurementsSelected.end()
+              ? "+++"
+              : "!!!"));
     }
 
     if (spMeasurementsSelected.size() < 3) {
