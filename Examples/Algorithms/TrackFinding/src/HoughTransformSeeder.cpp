@@ -260,7 +260,7 @@ HoughTransformSeeder::HoughTransformSeeder(
 
   const auto filterSpacePoints = [](std::span<const HoughMeasurementStruct*>
                                         measurements) {
-    const float granularity = 40.f;
+    const float granularity = 20.f;
     auto roundedCotTheta = [granularity](const HoughMeasurementStruct* meas,
                                          const HoughMeasurementStruct* other) {
       const float cotTheta =
