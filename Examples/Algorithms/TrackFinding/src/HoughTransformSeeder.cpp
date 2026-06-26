@@ -325,8 +325,7 @@ HoughTransformSeeder::HoughTransformSeeder(
             const auto sp2 = measurements[idx2];
             if (spIncompatible(sp_cotTheta(idx1, idx2)) &&
                 sp1->layer == sp2->layer) {
-              filteredMeasurements.erase(
-                  sp2);  // TODO: Which one should be removed?
+              filteredMeasurements.erase(sp2);
             }
           }
         }
