@@ -259,7 +259,7 @@ HoughTransformSeeder::HoughTransformSeeder(
       "Splitting detector into " << m_cfg.subRegions.size() << " subregions");
 
   const auto filterSpacePoints =
-      [](const std::vector<const HoughMeasurementStruct*>& spMeasurements) {
+      [](std::span<const HoughMeasurementStruct*> measurements) {
         const float granularity = 40.f;
         auto roundedCotTheta = [granularity](
                                    const HoughMeasurementStruct* meas,
@@ -271,18 +271,16 @@ HoughTransformSeeder::HoughTransformSeeder(
 
         auto spIncompatible = [](float cotTheta) {
           return !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
-                 std::abs(cotTheta) == 0 ||
-                 std::abs(cotTheta) > 1e3;  // TODO: Tune?
+                 std::abs(cotTheta) == 0;
         };
 
         // Find SPs which are compatible with each other.
-        Eigen::MatrixXf sp_cotTheta(spMeasurements.size(),
-                                    spMeasurements.size());
+        Eigen::MatrixXf sp_cotTheta(measurements.size(), measurements.size());
 
         // Fill cotθ matrix and find mode
         std::map<float, int> counts;
-        for (const auto&& [idx1, meas1] : Acts::enumerate(spMeasurements)) {
-          for (const auto&& [idx2, meas2] : Acts::enumerate(spMeasurements)) {
+        for (const auto&& [idx1, meas1] : Acts::enumerate(measurements)) {
+          for (const auto&& [idx2, meas2] : Acts::enumerate(measurements)) {
             const float cotTheta = roundedCotTheta(meas1, meas2);
 
             if (idx1 != idx2) {
@@ -296,7 +294,7 @@ HoughTransformSeeder::HoughTransformSeeder(
 
         // Find SP pairs which are incompatible with each other
         std::vector<std::pair<std::size_t, std::size_t>> incompatibleSPs;
-        for (std::size_t idx1 = 1; idx1 < spMeasurements.size(); ++idx1) {
+        for (std::size_t idx1 = 1; idx1 < measurements.size(); ++idx1) {
           for (std::size_t idx2 = 0; idx2 < idx1; ++idx2) {
             if (spIncompatible(sp_cotTheta(idx1, idx2))) {
               incompatibleSPs.emplace_back(idx1, idx2);
@@ -311,8 +309,8 @@ HoughTransformSeeder::HoughTransformSeeder(
 
         // Find which SP has the highest number of compatible SPs
         std::vector<int> compatible_count;
-        compatible_count.reserve(spMeasurements.size());
-        for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
+        compatible_count.reserve(measurements.size());
+        for (std::size_t idx = 0; idx < measurements.size(); ++idx) {
           compatible_count.push_back(std::ranges::count_if(
               sp_cotTheta.col(idx),
               [mode](float cotTheta) { return cotTheta == mode; }));
@@ -324,7 +322,7 @@ HoughTransformSeeder::HoughTransformSeeder(
 
         // Preselect SP indices
         std::set<std::size_t> sp_indices = {most_compatible};
-        for (std::size_t idx = 0; idx < spMeasurements.size(); ++idx) {
+        for (std::size_t idx = 0; idx < measurements.size(); ++idx) {
           if (sp_cotTheta.col(most_compatible)(idx) == mode) {
             sp_indices.insert(idx);
           }
@@ -334,22 +332,21 @@ HoughTransformSeeder::HoughTransformSeeder(
         std::set<std::size_t> to_remove;
         for (const auto& [sp1, sp2] : incompatibleSPs) {
           if (sp_indices.contains(sp1) && sp_indices.contains(sp2) &&
-              spMeasurements[sp1]->layer == spMeasurements[sp2]->layer) {
+              measurements[sp1]->layer == measurements[sp2]->layer) {
             to_remove.insert(sp2);  // TODO: Which one should be removed?
           }
         }
 
         // Select SPs
-        std::vector<const HoughMeasurementStruct*> spMeasurementsSelected;
-        spMeasurementsSelected.reserve(sp_indices.size());
-        for (const auto&& [idx, meas] : Acts::enumerate(spMeasurements)) {
-          if (std::ranges::find(sp_indices, idx) != sp_indices.end() &&
-              !to_remove.contains(idx)) {
-            spMeasurementsSelected.push_back(meas);
+        std::vector<const HoughMeasurementStruct*> filteredMeasurements;
+        filteredMeasurements.reserve(sp_indices.size());
+        for (const auto&& [idx, meas] : Acts::enumerate(measurements)) {
+          if (sp_indices.contains(idx) && !to_remove.contains(idx)) {
+            filteredMeasurements.push_back(meas);
           }
         }
 
-        return ResultSpacePoints::success(spMeasurementsSelected);
+        return ResultFiltering::success(filteredMeasurements);
       };
 
   m_cfg.seedFilter.connect(filterSpacePoints);
