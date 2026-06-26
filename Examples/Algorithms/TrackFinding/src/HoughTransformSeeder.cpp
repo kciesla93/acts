@@ -697,8 +697,8 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
         m_writer->writeObj(hough_hist.get());
         // m_writer->writeObj(peaks_hist.get());
       } else {
-        m_writer->writeObjThread(hough_hist.get());
-        // m_writer->writeObjThread(peaks_hist.get());
+        m_writer->writeObjThread(hough_hist.get(), ctx.threadId);
+        // m_writer->writeObjThread(peaks_hist.get(), ctx.threadId);
       }
     }
   }

@@ -443,11 +443,9 @@ struct ActsExamples::HoughTransformSeeder::Writer {
   }
 
   template <class T>
-  static void writeObjThread(T* obj) {
-    const auto thread_id_hash =
-        std::hash<std::thread::id>{}(std::this_thread::get_id());
-    auto file = TFile::Open(std::format("out_{}.root", thread_id_hash).c_str(),
-                            "update");
+  static void writeObjThread(T* obj, std::size_t threadId) {
+    auto file =
+        TFile::Open(std::format("out_{}.root", threadId).c_str(), "update");
     file->WriteObject(obj, obj->GetName());
     file->Close();
   }
