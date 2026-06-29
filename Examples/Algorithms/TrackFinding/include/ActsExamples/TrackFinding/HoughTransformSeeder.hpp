@@ -174,8 +174,8 @@ class HoughTransformSeeder final : public IAlgorithm {
       Acts::Delegate<ResultBool(const std::shared_ptr<HoughMeasurementStruct>&,
                                 int)>;  // (double z,unsigned layer, int slice)
                                         // returns true if measurement in slice
-  using SeedFilter =
-      Acts::Delegate<ResultFiltering(std::span<const HoughMeasurementStruct*>)>;
+  using SeedFilter = Acts::Delegate<ResultFiltering(
+      std::span<const HoughMeasurementStruct*>)>;
 
   struct Config {
     /// Input space point collections.

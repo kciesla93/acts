@@ -279,7 +279,13 @@ HoughTransformSeeder::HoughTransformSeeder(
             const float cotTheta = roundedCotTheta(meas1, meas2);
             if (idx1 != idx2) {
               sp_cotTheta(idx1, idx2) = cotTheta;
-              counts[sp_cotTheta(idx1, idx2)]++;
+              if (!(cotTheta == 0 &&
+                    std::abs(meas1->z) >
+                        550)) {  // Remove SP pairs perpendicular to beamline
+                                 // and far from IP from mode calculations, eg.
+                                 // SP on same endcap layer
+                counts[cotTheta]++;
+              }
             } else {
               sp_cotTheta(idx1, idx2) = 0;
             }
@@ -314,18 +320,15 @@ HoughTransformSeeder::HoughTransformSeeder(
         }
 
         auto spIncompatible = [](float cotTheta) {
-          return !std::isfinite(cotTheta) || std::isnan(cotTheta) ||
-                 std::abs(cotTheta) == 0;
+          return !std::isfinite(cotTheta)  // parallel to beam
+                 || std::isnan(cotTheta);
         };
 
         // Find SP pairs which are incompatible with each other
         for (std::size_t idx1 = 1; idx1 < measurements.size(); ++idx1) {
           for (std::size_t idx2 = 0; idx2 < idx1; ++idx2) {
-            const auto sp1 = measurements[idx1];
-            const auto sp2 = measurements[idx2];
-            if (spIncompatible(sp_cotTheta(idx1, idx2)) &&
-                sp1->layer == sp2->layer) {
-              filteredMeasurements.erase(sp2);
+            if (spIncompatible(sp_cotTheta(idx1, idx2))) {
+              filteredMeasurements.erase(measurements[idx2]);
             }
           }
         }
