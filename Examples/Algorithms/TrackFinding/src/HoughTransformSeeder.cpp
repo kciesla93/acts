@@ -630,43 +630,6 @@ ProcessCode HoughTransformSeeder::execute(const AlgorithmContext& ctx) const {
 
             addSeed(houghHist.hitIds(yPeak, xPeak), subregion, hash);
           }
-
-          // FIXME: Disabling writing to containers temporarily to avoid memory
-          // issues when generating a ttbar sample with very high pile-up
-          continue;
-
-          if (!passThreshold(houghHist, x, y)) {
-            continue;
-          }
-
-          // Now we need to unpack the hits; there should be multiple track
-          // candidates if we have multiple hits in a given layer. So the first
-          // thing is to unpack the indices (which is what we need) by layer
-
-          std::vector<std::vector<std::vector<Index>>> hitIndicesAll(
-              m_cfg.nLayers);
-          std::vector<std::size_t> nHitsPerLayer(m_cfg.nLayers);
-          for (auto measurementIndex : houghHist.hitIds(y, x)) {
-            HoughMeasurementStruct* meas =
-                houghMeasurementStructs[measurementIndex].get();
-            hitIndicesAll[meas->layer].push_back(meas->indices);
-            nHitsPerLayer[meas->layer]++;
-          }
-
-          std::vector<std::vector<int>> combs = getComboIndices(nHitsPerLayer);
-
-          // Loop over all combinations.
-          for (auto [icomb, hit_indices] : Acts::enumerate(combs)) {
-            ProtoTrack protoTrack;
-            for (unsigned layer = 0; layer < m_cfg.nLayers; layer++) {
-              if (hit_indices[layer] >= 0) {
-                for (auto index : hitIndicesAll[layer][hit_indices[layer]]) {
-                  protoTrack.push_back(index);
-                }
-              }
-            }
-            protoTracks.push_back(protoTrack);
-          }
         }
       }
     }
@@ -776,49 +739,6 @@ void HoughTransformSeeder::fillHoughHist(
       }
     }
   }
-}
-
-bool HoughTransformSeeder::passThreshold(HoughHist const& houghHist, unsigned x,
-                                         unsigned y) const {
-  // Pass window threshold
-  unsigned width = m_cfg.threshold.size() / 2;
-  if (x < width || m_cfg.houghHistSize_x - x < width) {
-    return false;
-  }
-  for (unsigned i = 0; i < m_cfg.threshold.size(); i++) {
-    if (houghHist.nLayers(y, x - width + i) < m_cfg.threshold[i]) {
-      return false;
-    }
-  }
-
-  // Pass local-maximum check, if used
-  if (m_cfg.localMaxWindowSize != 0) {
-    for (int j = -m_cfg.localMaxWindowSize; j <= m_cfg.localMaxWindowSize;
-         j++) {
-      for (int i = -m_cfg.localMaxWindowSize; i <= m_cfg.localMaxWindowSize;
-           i++) {
-        if (i == 0 && j == 0) {
-          continue;
-        }
-        if (y + j < m_cfg.houghHistSize_y && x + i < m_cfg.houghHistSize_x) {
-          if (houghHist.nLayers(y + j, x + i) > houghHist.nLayers(y, x)) {
-            return false;
-          }
-          if (houghHist.nLayers(y + j, x + i) == houghHist.nLayers(y, x)) {
-            if (houghHist.nHits(y + j, x + i) > houghHist.nHits(y, x)) {
-              return false;
-            }
-            if (houghHist.nHits(y + j, x + i) == houghHist.nHits(y, x) &&
-                j <= 0 && i <= 0) {
-              return false;  // favor bottom-left (low phi, low neg q/pt)
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -352,8 +352,6 @@ class HoughTransformSeeder final : public IAlgorithm {
               // the HoughHist, including extensions
 
   unsigned getExtension(unsigned y, unsigned layer) const;  // return extensions
-  bool passThreshold(HoughHist const& houghHist, unsigned x,
-                     unsigned y) const;  // did we pass extensions?
   void drawHoughHist(HoughHist const& houghHist,
                      std::string const& name);  // for making pretty plots
   std::vector<std::vector<int>> getComboIndices(std::vector<std::size_t>& sizes)
